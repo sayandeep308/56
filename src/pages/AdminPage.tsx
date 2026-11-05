@@ -217,13 +217,10 @@ export const AdminPage: React.FC<AdminPageProps> = ({
   };
 
   const handleSeedAllToFirestore = async () => {
-    if (!currentUser) {
-      await ensureCloudAuth();
-    }
-    if (!confirm('This will seed/sync all 7 core categories, products, slides, blogs, and settings into your live Firestore database. Proceed?')) {
+    if (!confirm('This will seed/sync all 7 core categories, products, slides, blogs, and settings into your live Firebase Realtime Database. Proceed?')) {
       return;
     }
-    setSyncStatus({ loading: true, msg: 'Syncing initial data to Firestore...' });
+    setSyncStatus({ loading: true, msg: 'Syncing initial data to Realtime Database...' });
     const res = await seedAllInitialDataToFirestore();
     if (res.success) {
       await onRefreshAllData();
@@ -234,6 +231,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
     }
     setTimeout(() => setSyncStatus({ loading: false, msg: '' }), 5000);
   };
+
 
   // Cloud Authentication Check
   const ensureCloudAuth = async (): Promise<boolean> => {
@@ -386,17 +384,14 @@ export const AdminPage: React.FC<AdminPageProps> = ({
       setNewImageUrlInput('');
       setNewSpecKey('');
       setNewSpecVal('');
-      alert('Product saved and synced successfully!');
+      alert('Product saved and synced to Realtime Database successfully!');
     } catch (err: any) {
-      if (err.message && err.message.includes('insufficient permissions')) {
-        alert('Product safely preserved in local browser cache! Note: Your live Firebase project has not applied the open Firestore rules yet. You can deploy rules in Firebase Console or click "Sign In with Google for Cloud Writes" at the top.');
-        setEditingProduct(null);
-        await onRefreshAllData();
-      } else {
-        alert(`Save product notice: ${err.message}`);
-      }
+      alert(`Save product notice: ${err?.message || 'Saved locally'}`);
+      setEditingProduct(null);
+      await onRefreshAllData();
     }
   };
+
 
 
   const handleDeleteProduct = async (id: string) => {

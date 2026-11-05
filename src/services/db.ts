@@ -1,17 +1,13 @@
 import {
-  collection,
-  doc,
-  getDocs,
-  getDoc,
-  setDoc,
-  deleteDoc,
-  updateDoc,
-  query,
-  orderBy,
-  onSnapshot,
+  ref,
+  get,
+  set,
+  update,
+  remove,
+  onValue,
   Unsubscribe,
-} from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../lib/firebase';
+} from 'firebase/database';
+import { db } from '../lib/firebase';
 import {
   Category,
   Product,
@@ -27,7 +23,7 @@ import {
   INITIAL_BLOG_POSTS,
   INITIAL_SITE_SETTINGS,
 } from '../data/seedData';
-import { cleanFirestorePayload } from '../utils/sanitize';
+import { cleanDatabasePayload } from '../utils/sanitize';
 
 // Local storage fallback keys for offline / instant-paint resilience
 const STORAGE_PREFIX = 'artisancraft_';
@@ -48,25 +44,41 @@ function setLocal<T>(key: string, val: T): void {
   }
 }
 
-// ================= HERO SLIDES =================
+/**
+ * Helper to convert an object map (from Realtime Database snapshot.val())
+ * or an array into a clean sorted array.
+ */
+function recordToArray<T extends { id?: string }>(val: any): T[] {
+  if (!val) return [];
+  if (Array.isArray(val)) {
+    return val.filter(Boolean) as T[];
+  }
+  if (typeof val === 'object') {
+    return Object.entries(val).map(([id, item]: [string, any]) => ({
+      id,
+      ...(item || {}),
+    })) as T[];
+  }
+  return [];
+}
+
+// ================= HERO SLIDES (banners/) =================
 export async function getHeroSlides(): Promise<HeroSlide[]> {
   try {
-    const q = query(collection(db, 'hero_slides'), orderBy('displayOrder', 'asc'));
-    const snapshot = await getDocs(q);
-    if (!snapshot.empty) {
-      const slides = snapshot.docs.map((docSnap) => {
-        const data = docSnap.data() as Omit<HeroSlide, 'id'>;
-        return {
-          id: docSnap.id,
-          ...data,
-          title: data.title ? data.title.replace(/\s*&\s*/g, ' and ') : '',
-        };
-      });
-      setLocal('hero_slides', slides);
-      return slides;
+    const snapshot = await get(ref(db, 'banners'));
+    if (snapshot.exists()) {
+      const slides = recordToArray<HeroSlide>(snapshot.val()).map((s) => ({
+        ...s,
+        title: s.title ? s.title.replace(/\s*&\s*/g, ' and ') : '',
+      }));
+      slides.sort((a, b) => (a.displayOrder ?? 1) - (b.displayOrder ?? 1));
+      if (slides.length > 0) {
+        setLocal('hero_slides', slides);
+        return slides;
+      }
     }
   } catch (error) {
-    console.warn('Firestore getHeroSlides fetch warning:', error);
+    console.warn('Realtime Database getHeroSlides fetch warning:', error);
   }
   const localSlides = getLocal('hero_slides', INITIAL_HERO_SLIDES);
   return localSlides.map((s) => ({
@@ -79,19 +91,16 @@ export function subscribeToHeroSlides(
   onData: (slides: HeroSlide[]) => void,
   onError?: (err: unknown) => void
 ): Unsubscribe {
-  const q = query(collection(db, 'hero_slides'), orderBy('displayOrder', 'asc'));
-  return onSnapshot(
-    q,
+  const bannerRef = ref(db, 'banners');
+  return onValue(
+    bannerRef,
     (snapshot) => {
-      if (!snapshot.empty) {
-        const slides = snapshot.docs.map((docSnap) => {
-          const data = docSnap.data() as Omit<HeroSlide, 'id'>;
-          return {
-            id: docSnap.id,
-            ...data,
-            title: data.title ? data.title.replace(/\s*&\s*/g, ' and ') : '',
-          };
-        });
+      if (snapshot.exists()) {
+        const slides = recordToArray<HeroSlide>(snapshot.val()).map((s) => ({
+          ...s,
+          title: s.title ? s.title.replace(/\s*&\s*/g, ' and ') : '',
+        }));
+        slides.sort((a, b) => (a.displayOrder ?? 1) - (b.displayOrder ?? 1));
         setLocal('hero_slides', slides);
         onData(slides);
       } else {
@@ -108,9 +117,14 @@ export function subscribeToHeroSlides(
 
 export async function saveHeroSlide(slide: Partial<HeroSlide> & { title: string }): Promise<HeroSlide> {
   const slideId = slide.id || `slide-${Date.now()}`;
-  const payload = {
+  const payload: HeroSlide = {
     ...slide,
     id: slideId,
+    title: slide.title,
+    subtitle: slide.subtitle || '',
+    imageUrl: slide.imageUrl || '',
+    ctaText: slide.ctaText || 'Enquire on WhatsApp',
+    ctaLink: slide.ctaLink || '/contact',
     displayOrder: slide.displayOrder ?? 1,
     isActive: slide.isActive ?? true,
     updatedAt: new Date().toISOString(),
@@ -119,28 +133,19 @@ export async function saveHeroSlide(slide: Partial<HeroSlide> & { title: string 
   // 1. Update local cache immediately
   const current = getLocal('hero_slides', INITIAL_HERO_SLIDES);
   const updated = current.some((s) => s.id === slideId)
-    ? current.map((s) => (s.id === slideId ? (payload as HeroSlide) : s))
-    : [...current, payload as HeroSlide];
+    ? current.map((s) => (s.id === slideId ? payload : s))
+    : [...current, payload];
   setLocal('hero_slides', updated);
 
-  // 2. Persist to Firestore with clean payload (no undefined values)
-  try {
-    const cleanData = cleanFirestorePayload(payload);
-    await setDoc(doc(db, 'hero_slides', slideId), cleanData);
-  } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, `hero_slides/${slideId}`);
-  }
+  // 2. Persist to Realtime Database at banners/{slideId}
+  const cleanData = cleanDatabasePayload(payload);
+  await set(ref(db, `banners/${slideId}`), cleanData);
 
-
-  return payload as HeroSlide;
+  return payload;
 }
 
 export async function deleteHeroSlide(slideId: string): Promise<void> {
-  try {
-    await deleteDoc(doc(db, 'hero_slides', slideId));
-  } catch (error) {
-    handleFirestoreError(error, OperationType.DELETE, `hero_slides/${slideId}`);
-  }
+  await remove(ref(db, `banners/${slideId}`));
   const current = getLocal('hero_slides', INITIAL_HERO_SLIDES);
   setLocal(
     'hero_slides',
@@ -148,21 +153,20 @@ export async function deleteHeroSlide(slideId: string): Promise<void> {
   );
 }
 
-// ================= CATEGORIES =================
+// ================= CATEGORIES (categories/) =================
 export async function getCategories(): Promise<Category[]> {
   try {
-    const q = query(collection(db, 'categories'), orderBy('displayOrder', 'asc'));
-    const snapshot = await getDocs(q);
-    if (!snapshot.empty) {
-      const categories = snapshot.docs.map((docSnap) => ({
-        id: docSnap.id,
-        ...(docSnap.data() as Omit<Category, 'id'>),
-      }));
-      setLocal('categories', categories);
-      return categories;
+    const snapshot = await get(ref(db, 'categories'));
+    if (snapshot.exists()) {
+      const categories = recordToArray<Category>(snapshot.val());
+      categories.sort((a, b) => (a.displayOrder ?? 1) - (b.displayOrder ?? 1));
+      if (categories.length > 0) {
+        setLocal('categories', categories);
+        return categories;
+      }
     }
   } catch (error) {
-    console.warn('Firestore getCategories fetch warning:', error);
+    console.warn('Realtime Database getCategories fetch warning:', error);
   }
   return getLocal('categories', INITIAL_CATEGORIES);
 }
@@ -171,15 +175,13 @@ export function subscribeToCategories(
   onData: (categories: Category[]) => void,
   onError?: (err: unknown) => void
 ): Unsubscribe {
-  const q = query(collection(db, 'categories'), orderBy('displayOrder', 'asc'));
-  return onSnapshot(
-    q,
+  const catRef = ref(db, 'categories');
+  return onValue(
+    catRef,
     (snapshot) => {
-      if (!snapshot.empty) {
-        const categories = snapshot.docs.map((docSnap) => ({
-          id: docSnap.id,
-          ...(docSnap.data() as Omit<Category, 'id'>),
-        }));
+      if (snapshot.exists()) {
+        const categories = recordToArray<Category>(snapshot.val());
+        categories.sort((a, b) => (a.displayOrder ?? 1) - (b.displayOrder ?? 1));
         setLocal('categories', categories);
         onData(categories);
       } else {
@@ -196,7 +198,7 @@ export function subscribeToCategories(
 
 export async function saveCategory(category: Category): Promise<Category> {
   const catId = category.id || category.slug;
-  const payload = {
+  const payload: Category = {
     ...category,
     id: catId,
     updatedAt: new Date().toISOString(),
@@ -209,24 +211,15 @@ export async function saveCategory(category: Category): Promise<Category> {
     : [...current, payload];
   setLocal('categories', updated);
 
-  // 2. Persist to Firestore with clean payload (no undefined values)
-  try {
-    const cleanData = cleanFirestorePayload(payload);
-    await setDoc(doc(db, 'categories', catId), cleanData);
-  } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, `categories/${catId}`);
-  }
-
+  // 2. Persist to Realtime Database at categories/{catId}
+  const cleanData = cleanDatabasePayload(payload);
+  await set(ref(db, `categories/${catId}`), cleanData);
 
   return payload;
 }
 
 export async function deleteCategory(categoryId: string): Promise<void> {
-  try {
-    await deleteDoc(doc(db, 'categories', categoryId));
-  } catch (error) {
-    handleFirestoreError(error, OperationType.DELETE, `categories/${categoryId}`);
-  }
+  await remove(ref(db, `categories/${categoryId}`));
   const current = getLocal('categories', INITIAL_CATEGORIES);
   setLocal(
     'categories',
@@ -234,20 +227,19 @@ export async function deleteCategory(categoryId: string): Promise<void> {
   );
 }
 
-// ================= PRODUCTS =================
+// ================= PRODUCTS (products/) =================
 export async function getProducts(): Promise<Product[]> {
   try {
-    const snapshot = await getDocs(collection(db, 'products'));
-    if (!snapshot.empty) {
-      const products = snapshot.docs.map((docSnap) => ({
-        id: docSnap.id,
-        ...(docSnap.data() as Omit<Product, 'id'>),
-      }));
-      setLocal('products', products);
-      return products;
+    const snapshot = await get(ref(db, 'products'));
+    if (snapshot.exists()) {
+      const products = recordToArray<Product>(snapshot.val());
+      if (products.length > 0) {
+        setLocal('products', products);
+        return products;
+      }
     }
   } catch (error) {
-    console.warn('Firestore getProducts fetch warning:', error);
+    console.warn('Realtime Database getProducts fetch warning:', error);
   }
   return getLocal('products', INITIAL_PRODUCTS);
 }
@@ -256,14 +248,12 @@ export function subscribeToProducts(
   onData: (products: Product[]) => void,
   onError?: (err: unknown) => void
 ): Unsubscribe {
-  return onSnapshot(
-    collection(db, 'products'),
+  const prodRef = ref(db, 'products');
+  return onValue(
+    prodRef,
     (snapshot) => {
-      if (!snapshot.empty) {
-        const products = snapshot.docs.map((docSnap) => ({
-          id: docSnap.id,
-          ...(docSnap.data() as Omit<Product, 'id'>),
-        }));
+      if (snapshot.exists()) {
+        const products = recordToArray<Product>(snapshot.val());
         setLocal('products', products);
         onData(products);
       } else {
@@ -286,7 +276,7 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
 
 export async function saveProduct(product: Product): Promise<Product> {
   const prodId = product.id || `prod-${Date.now()}`;
-  const payload = {
+  const payload: Product = {
     ...product,
     id: prodId,
     updatedAt: new Date().toISOString(),
@@ -299,24 +289,15 @@ export async function saveProduct(product: Product): Promise<Product> {
     : [...current, payload];
   setLocal('products', updated);
 
-  // 2. Persist to live Firestore with clean payload (no undefined values)
-  try {
-    const cleanData = cleanFirestorePayload(payload);
-    await setDoc(doc(db, 'products', prodId), cleanData);
-  } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, `products/${prodId}`);
-  }
-
+  // 2. Persist to Realtime Database at products/{prodId}
+  const cleanData = cleanDatabasePayload(payload);
+  await set(ref(db, `products/${prodId}`), cleanData);
 
   return payload;
 }
 
 export async function deleteProduct(productId: string): Promise<void> {
-  try {
-    await deleteDoc(doc(db, 'products', productId));
-  } catch (error) {
-    handleFirestoreError(error, OperationType.DELETE, `products/${productId}`);
-  }
+  await remove(ref(db, `products/${productId}`));
   const current = getLocal('products', INITIAL_PRODUCTS);
   setLocal(
     'products',
@@ -324,20 +305,19 @@ export async function deleteProduct(productId: string): Promise<void> {
   );
 }
 
-// ================= BLOG POSTS =================
+// ================= BLOG POSTS (blogs/) =================
 export async function getBlogPosts(): Promise<BlogPost[]> {
   try {
-    const snapshot = await getDocs(collection(db, 'blog_posts'));
-    if (!snapshot.empty) {
-      const posts = snapshot.docs.map((docSnap) => ({
-        id: docSnap.id,
-        ...(docSnap.data() as Omit<BlogPost, 'id'>),
-      }));
-      setLocal('blog_posts', posts);
-      return posts;
+    const snapshot = await get(ref(db, 'blogs'));
+    if (snapshot.exists()) {
+      const posts = recordToArray<BlogPost>(snapshot.val());
+      if (posts.length > 0) {
+        setLocal('blog_posts', posts);
+        return posts;
+      }
     }
   } catch (error) {
-    console.warn('Firestore getBlogPosts fetch warning:', error);
+    console.warn('Realtime Database getBlogPosts fetch warning:', error);
   }
   return getLocal('blog_posts', INITIAL_BLOG_POSTS);
 }
@@ -346,14 +326,12 @@ export function subscribeToBlogPosts(
   onData: (posts: BlogPost[]) => void,
   onError?: (err: unknown) => void
 ): Unsubscribe {
-  return onSnapshot(
-    collection(db, 'blog_posts'),
+  const blogRef = ref(db, 'blogs');
+  return onValue(
+    blogRef,
     (snapshot) => {
-      if (!snapshot.empty) {
-        const posts = snapshot.docs.map((docSnap) => ({
-          id: docSnap.id,
-          ...(docSnap.data() as Omit<BlogPost, 'id'>),
-        }));
+      if (snapshot.exists()) {
+        const posts = recordToArray<BlogPost>(snapshot.val());
         setLocal('blog_posts', posts);
         onData(posts);
       } else {
@@ -375,7 +353,7 @@ export async function getBlogPostBySlug(slug: string): Promise<BlogPost | null> 
 
 export async function saveBlogPost(post: BlogPost): Promise<BlogPost> {
   const postId = post.id || `blog-${Date.now()}`;
-  const payload = {
+  const payload: BlogPost = {
     ...post,
     id: postId,
     updatedAt: new Date().toISOString(),
@@ -388,24 +366,15 @@ export async function saveBlogPost(post: BlogPost): Promise<BlogPost> {
     : [...current, payload];
   setLocal('blog_posts', updated);
 
-  // 2. Persist to Firestore with clean payload (no undefined values)
-  try {
-    const cleanData = cleanFirestorePayload(payload);
-    await setDoc(doc(db, 'blog_posts', postId), cleanData);
-  } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, `blog_posts/${postId}`);
-  }
-
+  // 2. Persist to Realtime Database at blogs/{postId}
+  const cleanData = cleanDatabasePayload(payload);
+  await set(ref(db, `blogs/${postId}`), cleanData);
 
   return payload;
 }
 
 export async function deleteBlogPost(postId: string): Promise<void> {
-  try {
-    await deleteDoc(doc(db, 'blog_posts', postId));
-  } catch (error) {
-    handleFirestoreError(error, OperationType.DELETE, `blog_posts/${postId}`);
-  }
+  await remove(ref(db, `blogs/${postId}`));
   const current = getLocal('blog_posts', INITIAL_BLOG_POSTS);
   setLocal(
     'blog_posts',
@@ -413,7 +382,7 @@ export async function deleteBlogPost(postId: string): Promise<void> {
   );
 }
 
-// ================= CUSTOMER ENQUIRIES =================
+// ================= CUSTOMER ENQUIRIES (enquiries/) =================
 export async function submitEnquiry(
   enquiry: Omit<CustomerEnquiry, 'id' | 'createdAt' | 'status'> & { status?: CustomerEnquiry['status'] }
 ): Promise<CustomerEnquiry> {
@@ -425,36 +394,31 @@ export async function submitEnquiry(
     createdAt: new Date().toISOString(),
   };
 
-  try {
-    await setDoc(doc(db, 'enquiries', enquiryId), payload);
-  } catch (error) {
-    console.warn('Firestore submitEnquiry error, caching locally:', error);
-    try {
-      handleFirestoreError(error, OperationType.CREATE, `enquiries/${enquiryId}`);
-    } catch {
-      // Allow fallback caching
-    }
-  }
-
+  // Cache locally
   const current = getLocal<CustomerEnquiry[]>('enquiries', []);
   setLocal('enquiries', [payload, ...current]);
+
+  try {
+    const cleanData = cleanDatabasePayload(payload);
+    await set(ref(db, `enquiries/${enquiryId}`), cleanData);
+  } catch (error) {
+    console.warn('Realtime Database submitEnquiry notice:', error);
+  }
+
   return payload;
 }
 
 export async function getEnquiries(): Promise<CustomerEnquiry[]> {
   try {
-    const snapshot = await getDocs(collection(db, 'enquiries'));
-    if (!snapshot.empty) {
-      const items = snapshot.docs.map((docSnap) => ({
-        id: docSnap.id,
-        ...(docSnap.data() as Omit<CustomerEnquiry, 'id'>),
-      }));
+    const snapshot = await get(ref(db, 'enquiries'));
+    if (snapshot.exists()) {
+      const items = recordToArray<CustomerEnquiry>(snapshot.val());
       items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       setLocal('enquiries', items);
       return items;
     }
   } catch (error) {
-    console.warn('Firestore getEnquiries fetch notice:', error);
+    console.warn('Realtime Database getEnquiries fetch notice:', error);
   }
   return getLocal<CustomerEnquiry[]>('enquiries', []);
 }
@@ -463,14 +427,12 @@ export function subscribeToEnquiries(
   onData: (enquiries: CustomerEnquiry[]) => void,
   onError?: (err: unknown) => void
 ): Unsubscribe {
-  return onSnapshot(
-    collection(db, 'enquiries'),
+  const enqRef = ref(db, 'enquiries');
+  return onValue(
+    enqRef,
     (snapshot) => {
-      if (!snapshot.empty) {
-        const items = snapshot.docs.map((docSnap) => ({
-          id: docSnap.id,
-          ...(docSnap.data() as Omit<CustomerEnquiry, 'id'>),
-        }));
+      if (snapshot.exists()) {
+        const items = recordToArray<CustomerEnquiry>(snapshot.val());
         items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         setLocal('enquiries', items);
         onData(items);
@@ -490,13 +452,16 @@ export async function updateEnquiryStatus(
   status: CustomerEnquiry['status'],
   notes?: string
 ): Promise<void> {
+  const updateData: Record<string, any> = {
+    status,
+    updatedAt: new Date().toISOString(),
+  };
+  if (notes !== undefined) updateData.notes = notes;
+
   try {
-    const ref = doc(db, 'enquiries', enquiryId);
-    const updateData: Record<string, any> = { status, updatedAt: new Date().toISOString() };
-    if (notes !== undefined) updateData.notes = notes;
-    await updateDoc(ref, updateData);
+    await update(ref(db, `enquiries/${enquiryId}`), cleanDatabasePayload(updateData));
   } catch (error) {
-    handleFirestoreError(error, OperationType.UPDATE, `enquiries/${enquiryId}`);
+    console.warn('Realtime Database updateEnquiryStatus notice:', error);
   }
 
   const current = getLocal<CustomerEnquiry[]>('enquiries', []);
@@ -506,26 +471,17 @@ export async function updateEnquiryStatus(
   );
 }
 
-// ================= SITE SETTINGS (SYNCED TO settings/globalConfig & site_settings/default) =================
+// ================= SITE SETTINGS (settings/globalConfig) =================
 export async function getSiteSettings(): Promise<SiteSettings> {
   try {
-    // 1. Primary check: settings/globalConfig (per production sync specification)
-    const snapGlobal = await getDoc(doc(db, 'settings', 'globalConfig'));
-    if (snapGlobal.exists()) {
-      const data = { id: snapGlobal.id, ...(snapGlobal.data() as Omit<SiteSettings, 'id'>) };
-      setLocal('site_settings', data);
-      return data;
-    }
-
-    // 2. Secondary check: site_settings/default
-    const snap = await getDoc(doc(db, 'site_settings', 'default'));
-    if (snap.exists()) {
-      const data = { id: snap.id, ...(snap.data() as Omit<SiteSettings, 'id'>) };
+    const snapshot = await get(ref(db, 'settings/globalConfig'));
+    if (snapshot.exists()) {
+      const data = { id: 'globalConfig', ...(snapshot.val() || {}) };
       setLocal('site_settings', data);
       return data;
     }
   } catch (error) {
-    console.warn('Firestore getSiteSettings fetch notice:', error);
+    console.warn('Realtime Database getSiteSettings fetch notice:', error);
   }
   return getLocal('site_settings', INITIAL_SITE_SETTINGS);
 }
@@ -534,16 +490,15 @@ export function subscribeToSiteSettings(
   onData: (settings: SiteSettings) => void,
   onError?: (err: unknown) => void
 ): Unsubscribe {
-  // Listen to primary settings/globalConfig document
-  return onSnapshot(
-    doc(db, 'settings', 'globalConfig'),
+  const settingsRef = ref(db, 'settings/globalConfig');
+  return onValue(
+    settingsRef,
     (snapshot) => {
       if (snapshot.exists()) {
-        const data = { id: snapshot.id, ...(snapshot.data() as Omit<SiteSettings, 'id'>) };
+        const data = { id: 'globalConfig', ...(snapshot.val() || {}) };
         setLocal('site_settings', data);
         onData(data);
       } else {
-        // Fall back to checking site_settings/default once if globalConfig doesn't exist yet
         getSiteSettings().then(onData).catch(() => {});
       }
     },
@@ -555,7 +510,7 @@ export function subscribeToSiteSettings(
 }
 
 export async function saveSiteSettings(settings: SiteSettings): Promise<SiteSettings> {
-  const payload = {
+  const payload: SiteSettings = {
     ...settings,
     id: 'globalConfig',
     updatedAt: new Date().toISOString(),
@@ -564,18 +519,9 @@ export async function saveSiteSettings(settings: SiteSettings): Promise<SiteSett
   // 1. Immediately cache in local storage
   setLocal('site_settings', payload);
 
-  // 2. Persist to Firestore with clean payload (no undefined values)
-  try {
-    const cleanData = cleanFirestorePayload(payload);
-    // Write atomically to both settings/globalConfig and site_settings/default
-    await Promise.all([
-      setDoc(doc(db, 'settings', 'globalConfig'), cleanData),
-      setDoc(doc(db, 'site_settings', 'default'), { ...cleanData, id: 'default' }),
-    ]);
-  } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, 'settings/globalConfig');
-  }
-
+  // 2. Persist to Realtime Database at settings/globalConfig
+  const cleanData = cleanDatabasePayload(payload);
+  await set(ref(db, 'settings/globalConfig'), cleanData);
 
   return payload;
 }
@@ -583,31 +529,36 @@ export async function saveSiteSettings(settings: SiteSettings): Promise<SiteSett
 // ================= SEED ALL DATA HELPER =================
 export async function seedAllInitialDataToFirestore(): Promise<{ success: boolean; message: string }> {
   try {
-    // 1. Site Settings (both locations)
-    await Promise.all([
-      setDoc(doc(db, 'settings', 'globalConfig'), { ...INITIAL_SITE_SETTINGS, id: 'globalConfig' }),
-      setDoc(doc(db, 'site_settings', 'default'), INITIAL_SITE_SETTINGS),
-    ]);
+    // 1. Site Settings
+    await set(ref(db, 'settings/globalConfig'), cleanDatabasePayload({ ...INITIAL_SITE_SETTINGS, id: 'globalConfig' }));
 
-    // 2. Hero Slides
+    // 2. Hero Slides (banners/)
+    const bannerMap: Record<string, any> = {};
     for (const slide of INITIAL_HERO_SLIDES) {
-      await setDoc(doc(db, 'hero_slides', slide.id), slide);
+      bannerMap[slide.id] = cleanDatabasePayload(slide);
     }
+    await set(ref(db, 'banners'), bannerMap);
 
-    // 3. Categories
+    // 3. Categories (categories/)
+    const catMap: Record<string, any> = {};
     for (const cat of INITIAL_CATEGORIES) {
-      await setDoc(doc(db, 'categories', cat.id), cat);
+      catMap[cat.id] = cleanDatabasePayload(cat);
     }
+    await set(ref(db, 'categories'), catMap);
 
-    // 4. Products
+    // 4. Products (products/)
+    const prodMap: Record<string, any> = {};
     for (const prod of INITIAL_PRODUCTS) {
-      await setDoc(doc(db, 'products', prod.id), prod);
+      prodMap[prod.id] = cleanDatabasePayload(prod);
     }
+    await set(ref(db, 'products'), prodMap);
 
-    // 5. Blog Posts
+    // 5. Blog Posts (blogs/)
+    const blogMap: Record<string, any> = {};
     for (const post of INITIAL_BLOG_POSTS) {
-      await setDoc(doc(db, 'blog_posts', post.id), post);
+      blogMap[post.id] = cleanDatabasePayload(post);
     }
+    await set(ref(db, 'blogs'), blogMap);
 
     // Refresh local cache
     setLocal('hero_slides', INITIAL_HERO_SLIDES);
@@ -618,13 +569,13 @@ export async function seedAllInitialDataToFirestore(): Promise<{ success: boolea
 
     return {
       success: true,
-      message: 'All core categories, products, slides, blogs, and settings/globalConfig synced to Firestore successfully!',
+      message: 'All core categories, products, slides, blogs, and settings synced to Firebase Realtime Database successfully!',
     };
   } catch (error) {
-    console.error('Error seeding data to Firestore:', error);
+    console.error('Error syncing to Realtime Database:', error);
     return {
       success: false,
-      message: error instanceof Error ? error.message : 'Error syncing to Firestore',
+      message: error instanceof Error ? error.message : 'Error syncing to Realtime Database',
     };
   }
 }

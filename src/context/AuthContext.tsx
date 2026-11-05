@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { ref, set } from 'firebase/database';
 import { auth, db, googleProvider } from '../lib/firebase';
 
 interface AuthContextType {
@@ -42,18 +42,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Any user who signs in via Google or Admin passkey is granted admin status
         setIsAdmin(true);
         try {
-          await setDoc(
-            doc(db, 'admins', user.uid),
-            {
-              uid: user.uid,
-              email: user.email || 'admin@satarupa.local',
-              role: 'super_admin',
-              updatedAt: new Date().toISOString(),
-            },
-            { merge: true }
-          );
+          await set(ref(db, `admins/${user.uid}`), {
+            uid: user.uid,
+            email: user.email || 'admin@satarupa.local',
+            role: 'super_admin',
+            updatedAt: new Date().toISOString(),
+          });
         } catch (e) {
-          console.warn('Could not update admin doc (continuing):', e);
+          console.warn('Admin record sync notice (continuing):', e);
         }
       } else {
         setIsAdmin(false);
@@ -71,16 +67,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (user) {
         setIsAdmin(true);
         try {
-          await setDoc(
-            doc(db, 'admins', user.uid),
-            {
-              uid: user.uid,
-              email: user.email || 'admin@satarupa.local',
-              role: 'super_admin',
-              updatedAt: new Date().toISOString(),
-            },
-            { merge: true }
-          );
+          await set(ref(db, `admins/${user.uid}`), {
+            uid: user.uid,
+            email: user.email || 'admin@satarupa.local',
+            role: 'super_admin',
+            updatedAt: new Date().toISOString(),
+          });
         } catch {
           // ignore
         }
@@ -90,7 +82,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw error;
     }
   };
-
 
   const logout = async () => {
     await signOut(auth);
