@@ -91,6 +91,32 @@ export const AdminPage: React.FC<AdminPageProps> = ({
     return sessionStorage.getItem('satarupa_admin_password_unlocked') === 'true';
   });
 
+  // Google Login State & Error Details
+  const [isLoggingInGoogle, setIsLoggingInGoogle] = useState(false);
+  const [googleLoginError, setGoogleLoginError] = useState<{
+    code: string;
+    message: string;
+    hostname: string;
+  } | null>(null);
+
+  const handleGoogleLoginDirect = async () => {
+    setIsLoggingInGoogle(true);
+    setGoogleLoginError(null);
+    try {
+      await loginWithGoogle();
+      // On success, state automatically flips isAdmin to true via AuthContext
+    } catch (err: any) {
+      console.error('Direct Google Sign In failed:', err);
+      setGoogleLoginError({
+        code: err?.code || 'auth/unknown',
+        message: err?.message || 'Authentication was interrupted or closed.',
+        hostname: window.location.hostname || 'localhost',
+      });
+    } finally {
+      setIsLoggingInGoogle(false);
+    }
+  };
+
   const handlePasswordLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (enteredPassword.trim() === 'Satarupa9908') {
@@ -102,6 +128,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
       setPasswordError('Incorrect password. Please enter the authorized administrator password.');
     }
   };
+
 
   const handleAdminLogout = () => {
     setIsPasswordUnlocked(false);
@@ -506,42 +533,18 @@ export const AdminPage: React.FC<AdminPageProps> = ({
             </div>
           )}
 
-          {/* Primary Recommended: Google Admin Sign In */}
-          <div className="p-4 rounded-2xl bg-amber-50/80 border border-[#F4D9A0] text-left space-y-2">
-            <div className="flex items-center gap-2">
-              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-[#C8792C] text-white">
-                Recommended
-              </span>
-              <span className="text-xs font-bold text-[#2C221E]">
-                Direct Live Firestore Access
+          {/* Direct Admin Password/Passkey Form (Reliable Direct Access) */}
+          <div className="bg-white/80 rounded-2xl border border-[#E8DFD5] p-4 text-left space-y-3 shadow-xs">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-bold text-[#2C221E]">
+                Admin Passkey / Master Password
+              </label>
+              <span className="text-[10px] font-semibold text-[#8C7A6B]">
+                Instant Entry
               </span>
             </div>
-            <p className="text-[11px] text-[#5A4E46] leading-relaxed">
-              Sign in with your authorized Google Admin account (<strong className="text-[#2C221E]">deep.007.sayan@gmail.com</strong>) to immediately read, create, and edit products directly in the live Firestore cloud database.
-            </p>
-            <button
-              type="button"
-              onClick={loginWithGoogle}
-              className="w-full btn-wood-gold py-2.5 text-xs font-bold flex items-center justify-center gap-2 shadow-sm"
-            >
-              <LogIn className="w-4 h-4 text-[#5B4632]" />
-              <span>Sign In with Google Admin</span>
-            </button>
-          </div>
 
-          <div className="relative py-1 flex items-center justify-center">
-            <span className="h-px bg-[#E8DFD5] w-full" />
-            <span className="text-[10px] text-[#5A4E46] bg-white px-2 absolute uppercase font-bold tracking-wider">
-              Or Master Password (Local Admin)
-            </span>
-          </div>
-
-          {/* Password Form */}
-          <form onSubmit={handlePasswordLogin} className="space-y-3 pt-1">
-            <div className="text-left">
-              <label className="block text-xs font-semibold text-[#2C221E] mb-1">
-                Administrator Password
-              </label>
+            <form onSubmit={handlePasswordLogin} className="space-y-3">
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
@@ -549,26 +552,99 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                   value={enteredPassword}
                   onChange={(e) => setEnteredPassword(e.target.value)}
                   placeholder="Enter administrator password..."
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-[#E8DFD5] bg-[#FAF6F0]/40 text-sm text-[#2C221E] focus:outline-hidden focus:border-[#C8792C] pr-10"
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-[#E8DFD5] bg-[#FAF6F0]/40 text-sm text-[#2C221E] focus:outline-hidden focus:border-[#C8792C] pr-12"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs font-medium"
                 >
                   {showPassword ? 'Hide' : 'Show'}
                 </button>
               </div>
+
+              <button
+                type="submit"
+                className="w-full btn-gold-pill py-2.5 text-xs font-bold flex items-center justify-center gap-2 shadow-sm"
+              >
+                <ShieldCheck className="w-4 h-4 text-[#241403]" />
+                <span>Unlock Admin Portal (Satarupa9908)</span>
+              </button>
+            </form>
+          </div>
+
+          <div className="relative py-1 flex items-center justify-center">
+            <span className="h-px bg-[#E8DFD5] w-full" />
+            <span className="text-[10px] text-[#5A4E46] bg-white px-2.5 absolute uppercase font-bold tracking-wider">
+              Or Sign In with Google
+            </span>
+          </div>
+
+          {/* Google Sign In Area with Detailed Diagnostic Box */}
+          <div className="p-4 rounded-2xl bg-amber-50/80 border border-[#F4D9A0] text-left space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-[#C8792C] text-white">
+                Google Cloud
+              </span>
+              <span className="text-xs font-bold text-[#2C221E]">
+                Cloud Firestore Sync
+              </span>
             </div>
+            <p className="text-[11px] text-[#5A4E46] leading-relaxed">
+              Authenticate via Google popup for instant multi-device Firestore synchronization across Vercel and mobile.
+            </p>
+
+            {/* Error Box with Exact Code, Message, and Hostname for Firebase Console */}
+            {googleLoginError && (
+              <div className="p-3.5 rounded-xl bg-red-50 border-2 border-red-300 text-red-900 text-xs space-y-2">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                  <div className="space-y-1 w-full">
+                    <p className="font-bold text-red-800">
+                      Sign-In Notice ({googleLoginError.code})
+                    </p>
+                    <p className="text-[11px] text-red-700 leading-normal">
+                      {googleLoginError.message}
+                    </p>
+                  </div>
+                </div>
+
+                {googleLoginError.code.includes('unauthorized-domain') && (
+                  <div className="p-2.5 bg-white/90 rounded-lg border border-red-200 text-[11px] text-[#2C221E] space-y-1">
+                    <p className="font-semibold text-red-800">
+                      Domain not yet authorized in Firebase Console:
+                    </p>
+                    <div className="flex items-center justify-between bg-gray-100 px-2 py-1.5 rounded font-mono text-[11px] border border-gray-300">
+                      <span>{googleLoginError.hostname}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard?.writeText(googleLoginError.hostname);
+                          alert(`Copied "${googleLoginError.hostname}" to clipboard! Paste it into Firebase Console > Authentication > Settings > Authorized Domains.`);
+                        }}
+                        className="text-[10px] bg-[#C8792C] text-white px-2 py-0.5 rounded font-sans font-bold hover:bg-[#A35D1D]"
+                      >
+                        Copy Domain
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-gray-500 mt-1">
+                      Tip: You can use the Admin Passkey (above) right now to enter the portal without waiting for domain configuration.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
 
             <button
-              type="submit"
-              className="w-full btn-gold-pill py-2.5 text-xs font-bold flex items-center justify-center gap-2 shadow-md"
+              type="button"
+              disabled={isLoggingInGoogle}
+              onClick={handleGoogleLoginDirect}
+              className="w-full btn-wood-gold py-2.5 text-xs font-bold flex items-center justify-center gap-2 shadow-sm disabled:opacity-60 cursor-pointer"
             >
-              <ShieldCheck className="w-4 h-4 text-[#241403]" />
-              <span>Unlock with Password (Satarupa9908)</span>
+              <LogIn className="w-4 h-4 text-[#5B4632]" />
+              <span>{isLoggingInGoogle ? 'Opening Google Sign In...' : 'Sign In with Google (Popup)'}</span>
             </button>
-          </form>
+          </div>
 
           <div className="pt-2 border-t border-[#FAF6F0] text-center">
             <button
@@ -578,6 +654,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
               &larr; Return to Public Website
             </button>
           </div>
+
         </div>
       </div>
     );
@@ -618,14 +695,16 @@ export const AdminPage: React.FC<AdminPageProps> = ({
           <div className="flex flex-wrap items-center gap-3">
             {!currentUser && (
               <button
-                onClick={loginWithGoogle}
-                className="btn-wood-gold text-xs px-3.5 py-2.5 font-bold flex items-center gap-1.5 shadow-sm animate-pulse"
+                disabled={isLoggingInGoogle}
+                onClick={handleGoogleLoginDirect}
+                className="btn-wood-gold text-xs px-3.5 py-2.5 font-bold flex items-center gap-1.5 shadow-sm animate-pulse disabled:opacity-60 cursor-pointer"
                 title="Sign in with Google so your product additions and edits write directly to live Firestore"
               >
                 <LogIn className="w-3.5 h-3.5 text-[#5B4632]" />
-                <span>Sign In with Google for Cloud Writes</span>
+                <span>{isLoggingInGoogle ? 'Opening Google...' : 'Sign In with Google for Cloud Writes'}</span>
               </button>
             )}
+
 
             <button
               onClick={handleSeedAllToFirestore}

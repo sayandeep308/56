@@ -39,28 +39,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
       if (user) {
-        // Check if user is known admin email or has document in admins
-        const isEmailAdmin = user.email === 'sayandipbera42@gmail.com' || user.email === 'deep.007.sayan@gmail.com';
-        if (isEmailAdmin) {
-          setIsAdmin(true);
-          try {
-            // Guarantee admin doc exists
-            await setDoc(doc(db, 'admins', user.uid), {
+        // Any user who signs in via Google or Admin passkey is granted admin status
+        setIsAdmin(true);
+        try {
+          await setDoc(
+            doc(db, 'admins', user.uid),
+            {
               uid: user.uid,
-              email: user.email,
+              email: user.email || 'admin@satarupa.local',
               role: 'super_admin',
               updatedAt: new Date().toISOString(),
-            }, { merge: true });
-          } catch (e) {
-            console.warn('Could not update admin doc:', e);
-          }
-        } else {
-          try {
-            const adminDoc = await getDoc(doc(db, 'admins', user.uid));
-            setIsAdmin(adminDoc.exists());
-          } catch {
-            setIsAdmin(false);
-          }
+            },
+            { merge: true }
+          );
+        } catch (e) {
+          console.warn('Could not update admin doc (continuing):', e);
         }
       } else {
         setIsAdmin(false);
@@ -75,15 +68,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
-      if (user.email === 'sayandipbera42@gmail.com' || user.email === 'deep.007.sayan@gmail.com') {
+      if (user) {
         setIsAdmin(true);
         try {
-          await setDoc(doc(db, 'admins', user.uid), {
-            uid: user.uid,
-            email: user.email,
-            role: 'super_admin',
-            updatedAt: new Date().toISOString(),
-          }, { merge: true });
+          await setDoc(
+            doc(db, 'admins', user.uid),
+            {
+              uid: user.uid,
+              email: user.email || 'admin@satarupa.local',
+              role: 'super_admin',
+              updatedAt: new Date().toISOString(),
+            },
+            { merge: true }
+          );
         } catch {
           // ignore
         }
@@ -93,6 +90,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw error;
     }
   };
+
 
   const logout = async () => {
     await signOut(auth);

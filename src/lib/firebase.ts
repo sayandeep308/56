@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import {
   initializeFirestore,
   persistentLocalCache,
@@ -87,7 +87,20 @@ try {
 
 export const db = firestoreDb;
 export const auth = getAuth(app);
+try {
+  setPersistence(auth, browserLocalPersistence).catch((err) => {
+    console.warn('Firebase setPersistence notice:', err);
+  });
+} catch (e) {
+  // Ignore in environments where window is not fully ready
+}
+
 export const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({
+  prompt: 'select_account',
+});
+
+
 
 export enum OperationType {
   CREATE = 'create',
