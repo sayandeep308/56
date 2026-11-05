@@ -44,9 +44,11 @@ import {
   deleteBlogPost,
   updateEnquiryStatus,
   getEnquiries,
+  subscribeToEnquiries,
   saveSiteSettings,
   seedAllInitialDataToFirestore,
 } from '../services/db';
+import { uploadImageWithTieredFallback } from '../utils/imageUpload';
 import { slugify } from '../utils/slugify';
 import { formatPrice } from '../utils/currency';
 import { TilakLogo } from '../components/TilakLogo';
@@ -119,10 +121,12 @@ export const AdminPage: React.FC<AdminPageProps> = ({
       whatsappNumber: '+919382176969',
       phoneNumber: '+91 93821 76969',
       email: 'satarupasteelenterprise@gmail.com',
+      adminEmail: 'deep.007.sayan@gmail.com',
       address: 'Madpur Station Bajar, West Bengal, India',
       mapsUrl: 'https://share.google/NJPhQEXIVloDifYAW',
       cloudinaryCloudName: 'demo-artisan',
       cloudinaryUploadPreset: 'artisancraft_preset',
+      imgbbApiKey: '',
       defaultCurrency: 'Rs. ',
       welcomeMessage: 'Welcome to Satarupa Steel Enterprise.',
     }
@@ -138,8 +142,9 @@ export const AdminPage: React.FC<AdminPageProps> = ({
   // New keyword in Blog editor
   const [newKeywordInput, setNewKeywordInput] = useState('');
 
-  // Cloudinary direct upload helper
+  // 3-Tier Image Upload Helper state
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadProgressMsg, setUploadProgressMsg] = useState('');
 
   useEffect(() => {
     if (settings) setSettingsForm(settings);
@@ -148,6 +153,11 @@ export const AdminPage: React.FC<AdminPageProps> = ({
   useEffect(() => {
     if (isAdmin) {
       loadEnquiries();
+      const unsubEnquiries = subscribeToEnquiries((items) => {
+        setEnquiriesList(items);
+        setLoadingEnquiries(false);
+      });
+      return () => unsubEnquiries();
     }
   }, [isAdmin]);
 
@@ -163,31 +173,17 @@ export const AdminPage: React.FC<AdminPageProps> = ({
     }
   };
 
-  const handleCloudinaryUpload = async (file: File, onSuccess: (url: string) => void) => {
-    if (!settingsForm.cloudinaryCloudName || !settingsForm.cloudinaryUploadPreset) {
-      alert('Please configure your Cloudinary Cloud Name and Upload Preset in Site Settings tab first, or paste direct image URLs.');
-      return;
-    }
-
+  const handleTieredImageUpload = async (file: File, onSuccess: (url: string) => void) => {
     setUploadingImage(true);
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('upload_preset', settingsForm.cloudinaryUploadPreset);
-
+    setUploadProgressMsg('Uploading image...');
     try {
-      const res = await fetch(
-        `https://api.cloudinary.com/v1_1/${settingsForm.cloudinaryCloudName}/image/upload`,
-        { method: 'POST', body: formData }
-      );
-      const data = await res.json();
-      if (data.secure_url) {
-        onSuccess(data.secure_url);
-      } else {
-        alert(`Cloudinary error: ${data.error?.message || 'Failed to upload'}`);
-      }
-    } catch (err) {
-      console.error('Cloudinary upload failure:', err);
-      alert('Cloudinary upload error. Please check your credentials or paste an image URL directly.');
+      const result = await uploadImageWithTieredFallback(file, settingsForm);
+      onSuccess(result.url);
+      setUploadProgressMsg(result.message);
+      setTimeout(() => setUploadProgressMsg(''), 4500);
+    } catch (err: any) {
+      console.error('Image upload failed:', err);
+      alert(`Upload error: ${err.message || 'Failed to process image'}`);
     } finally {
       setUploadingImage(false);
     }
@@ -402,7 +398,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
     try {
       await saveSiteSettings(settingsForm);
       await onRefreshAllData();
-      alert('Site Settings updated successfully in Firestore!');
+      alert('Settings synced successfully to Firestore (settings/globalConfig)! Active across all domains and devices.');
     } catch (err: any) {
       alert(`Save settings error: ${err.message}`);
     }
@@ -1333,37 +1329,106 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                 />
               </div>
 
-              {/* Cloudinary credentials box */}
-              <div className="p-4 rounded-xl bg-[#FAF6F0] border border-[#F4D9A0] space-y-3">
-                <span className="font-serif font-bold text-xs uppercase tracking-wider text-[#5B4632] block">
-                  Cloudinary Image Upload Credentials (Unsigned)
+              <div>
+                <label className="block text-xs font-semibold text-[#2C221E] mb-1">
+                  Administrator / Super-Admin Email
+                </label>
+                <input
+                  type="email"
+                  value={settingsForm.adminEmail || ''}
+                  onChange={(e) => setSettingsForm({ ...settingsForm, adminEmail: e.target.value })}
+                  placeholder="e.g. deep.007.sayan@gmail.com"
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-[#E8DFD5] text-xs sm:text-sm"
+                />
+                <span className="text-[11px] text-[#5A4E46] mt-0.5 block">
+                  Users authenticated with this email receive immediate master administrator access.
                 </span>
-                <p className="text-xs text-[#5A4E46]">
-                  Allows direct file uploads in product and hero slider managers. If empty, you can paste direct image URLs.
-                </p>
+              </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* 3-Tier Image Cloud Storage Configuration Box */}
+              <div className="p-4 rounded-xl bg-[#FAF6F0] border border-[#F4D9A0] space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div>
-                    <label className="block text-[11px] font-semibold text-[#2C221E] mb-1">
-                      Cloud Name
-                    </label>
-                    <input
-                      type="text"
-                      value={settingsForm.cloudinaryCloudName}
-                      onChange={(e) => setSettingsForm({ ...settingsForm, cloudinaryCloudName: e.target.value })}
-                      placeholder="e.g. demo-artisan"
-                      className="w-full px-3 py-2 rounded-lg border border-[#E8DFD5] bg-white text-xs"
-                    />
+                    <span className="font-serif font-bold text-xs uppercase tracking-wider text-[#5B4632] block">
+                      3-Tier Image Cloud Storage Architecture
+                    </span>
+                    <p className="text-xs text-[#5A4E46] mt-0.5">
+                      Persisted across all domains in Firestore (<code className="bg-[#F3ECE2] px-1 py-0.5 rounded text-[11px]">settings/globalConfig</code>). Never lost when deploying to Vercel.
+                    </p>
                   </div>
                   <div>
+                    {settingsForm.cloudinaryCloudName &&
+                    settingsForm.cloudinaryUploadPreset &&
+                    settingsForm.cloudinaryCloudName !== 'demo-artisan' ? (
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                        ● Tier 1: Cloudinary CDN Active
+                      </span>
+                    ) : settingsForm.imgbbApiKey ? (
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold bg-blue-100 text-blue-800 border border-blue-300">
+                        ● Tier 1: ImgBB Cloud Active
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-900 border border-amber-300">
+                        ● Tier 2: Zero-Config Auto Compression (&lt;150KB Free)
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="bg-white/80 p-3 rounded-lg border border-[#E8DFD5] text-xs text-[#5A4E46] space-y-1.5">
+                  <p className="font-semibold text-[#2C221E]">How image uploads work across Vercel & Mobile:</p>
+                  <ul className="list-disc list-inside space-y-0.5 text-[11px]">
+                    <li><strong>Tier 1 (Cloudinary / ImgBB):</strong> Uploads directly to external cloud bucket and saves the CDN URL into Firestore.</li>
+                    <li><strong>Tier 2 (Zero-Config Auto Fallback):</strong> If no external keys are configured, images are automatically compressed in-browser via HTML5 Canvas (max 1000px, &lt;150KB WebP) and stored in Firestore for 100% free hosting on Vercel out-of-the-box.</li>
+                    <li><strong>Tier 3 (Direct Link):</strong> Any direct public image URL can be pasted into any manager.</li>
+                  </ul>
+                </div>
+
+                <div className="space-y-3">
+                  <span className="text-[11px] font-bold text-[#5B4632] uppercase tracking-wide block">
+                    Option A: Cloudinary Credentials (Unsigned)
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-[#2C221E] mb-1">
+                        Cloud Name
+                      </label>
+                      <input
+                        type="text"
+                        value={settingsForm.cloudinaryCloudName}
+                        onChange={(e) => setSettingsForm({ ...settingsForm, cloudinaryCloudName: e.target.value })}
+                        placeholder="e.g. your_cloud_name"
+                        className="w-full px-3 py-2 rounded-lg border border-[#E8DFD5] bg-white text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-[#2C221E] mb-1">
+                        Unsigned Upload Preset
+                      </label>
+                      <input
+                        type="text"
+                        value={settingsForm.cloudinaryUploadPreset}
+                        onChange={(e) => setSettingsForm({ ...settingsForm, cloudinaryUploadPreset: e.target.value })}
+                        placeholder="e.g. ml_default"
+                        className="w-full px-3 py-2 rounded-lg border border-[#E8DFD5] bg-white text-xs"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2 pt-1 border-t border-[#E8DFD5]">
+                  <span className="text-[11px] font-bold text-[#5B4632] uppercase tracking-wide block">
+                    Option B: ImgBB Cloud API Key (Optional Alternative)
+                  </span>
+                  <div>
                     <label className="block text-[11px] font-semibold text-[#2C221E] mb-1">
-                      Unsigned Upload Preset
+                      ImgBB API Key (from api.imgbb.com)
                     </label>
                     <input
                       type="text"
-                      value={settingsForm.cloudinaryUploadPreset}
-                      onChange={(e) => setSettingsForm({ ...settingsForm, cloudinaryUploadPreset: e.target.value })}
-                      placeholder="e.g. ml_default"
+                      value={settingsForm.imgbbApiKey || ''}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, imgbbApiKey: e.target.value })}
+                      placeholder="e.g. 7c9a8b1... (leave empty if using Cloudinary or Tier 2 auto-compression)"
                       className="w-full px-3 py-2 rounded-lg border border-[#E8DFD5] bg-white text-xs"
                     />
                   </div>
@@ -1376,7 +1441,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                   className="btn-wood text-xs sm:text-sm px-6 py-3 font-semibold flex items-center gap-2"
                 >
                   <Save className="w-4 h-4 text-[#F4D9A0]" />
-                  <span>Save Site Settings to Firestore</span>
+                  <span>Save All Settings to Firestore (settings/globalConfig)</span>
                 </button>
               </div>
             </form>
@@ -1432,24 +1497,28 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                   placeholder="https://images.unsplash.com/..."
                   className="w-full px-3 py-2 rounded-lg border border-[#E8DFD5]"
                 />
-                <div className="mt-1 flex items-center gap-2">
-                  <label className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-[#FAF6F0] border border-[#E8DFD5] text-[11px] font-semibold cursor-pointer hover:bg-gray-100">
+                <div className="mt-1 flex flex-wrap items-center gap-2">
+                  <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#FAF6F0] border border-[#E8DFD5] text-[11px] font-semibold cursor-pointer hover:bg-gray-100 transition-colors">
                     <Upload className="w-3.5 h-3.5 text-[#5B4632]" />
-                    <span>{uploadingImage ? 'Uploading to Cloudinary...' : 'Upload via Cloudinary'}</span>
+                    <span>{uploadingImage ? (uploadProgressMsg || 'Uploading...') : 'Upload Image (Auto 3-Tier)'}</span>
                     <input
                       type="file"
                       accept="image/*"
                       className="hidden"
+                      disabled={uploadingImage}
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) {
-                          handleCloudinaryUpload(file, (url) => {
+                          handleTieredImageUpload(file, (url) => {
                             setEditingSlide({ ...editingSlide, imageUrl: url });
                           });
                         }
                       }}
                     />
                   </label>
+                  {uploadProgressMsg && (
+                    <span className="text-[11px] text-amber-800 font-medium">{uploadProgressMsg}</span>
+                  )}
                 </div>
               </div>
 
@@ -1571,12 +1640,38 @@ export const AdminPage: React.FC<AdminPageProps> = ({
 
               <div>
                 <label className="block font-semibold mb-1">Cover Image URL</label>
-                <input
-                  type="url"
-                  value={editingCategory.imageUrl || ''}
-                  onChange={(e) => setEditingCategory({ ...editingCategory, imageUrl: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg border border-[#E8DFD5]"
-                />
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    value={editingCategory.imageUrl || ''}
+                    onChange={(e) => setEditingCategory({ ...editingCategory, imageUrl: e.target.value })}
+                    placeholder="https://images.unsplash.com/... or upload below"
+                    className="w-full px-3 py-2 rounded-lg border border-[#E8DFD5]"
+                  />
+                </div>
+                <div className="mt-1 flex flex-wrap items-center gap-2">
+                  <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#FAF6F0] border border-[#E8DFD5] text-[11px] font-semibold cursor-pointer hover:bg-gray-100 transition-colors">
+                    <Upload className="w-3.5 h-3.5 text-[#5B4632]" />
+                    <span>{uploadingImage ? (uploadProgressMsg || 'Uploading...') : 'Upload Image (Auto 3-Tier)'}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      disabled={uploadingImage}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          handleTieredImageUpload(file, (url) => {
+                            setEditingCategory({ ...editingCategory, imageUrl: url });
+                          });
+                        }
+                      }}
+                    />
+                  </label>
+                  {uploadProgressMsg && (
+                    <span className="text-[11px] text-amber-800 font-medium">{uploadProgressMsg}</span>
+                  )}
+                </div>
               </div>
 
               <div>
@@ -1849,18 +1944,19 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                   </button>
                 </div>
 
-                <div className="flex items-center gap-2 pt-1">
-                  <label className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-white border border-[#E8DFD5] text-[11px] font-semibold cursor-pointer hover:bg-gray-100">
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white border border-[#E8DFD5] text-[11px] font-semibold cursor-pointer hover:bg-gray-100 transition-colors">
                     <Upload className="w-3.5 h-3.5 text-[#5B4632]" />
-                    <span>Upload to Cloudinary</span>
+                    <span>{uploadingImage ? (uploadProgressMsg || 'Uploading...') : 'Upload Image (Auto 3-Tier)'}</span>
                     <input
                       type="file"
                       accept="image/*"
                       className="hidden"
+                      disabled={uploadingImage}
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) {
-                          handleCloudinaryUpload(file, (url) => {
+                          handleTieredImageUpload(file, (url) => {
                             const cur = editingProduct.images || [];
                             setEditingProduct({ ...editingProduct, images: [...cur, url] });
                           });
@@ -1868,6 +1964,9 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                       }}
                     />
                   </label>
+                  {uploadProgressMsg && (
+                    <span className="text-[11px] text-amber-800 font-medium">{uploadProgressMsg}</span>
+                  )}
                 </div>
 
                 <div className="flex flex-wrap gap-2 pt-2">
@@ -2052,12 +2151,38 @@ export const AdminPage: React.FC<AdminPageProps> = ({
 
               <div>
                 <label className="block font-semibold mb-1">Featured Hero Image URL</label>
-                <input
-                  type="url"
-                  value={editingPost.featuredImage || ''}
-                  onChange={(e) => setEditingPost({ ...editingPost, featuredImage: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg border border-[#E8DFD5]"
-                />
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    value={editingPost.featuredImage || ''}
+                    onChange={(e) => setEditingPost({ ...editingPost, featuredImage: e.target.value })}
+                    placeholder="https://images.unsplash.com/... or upload below"
+                    className="w-full px-3 py-2 rounded-lg border border-[#E8DFD5]"
+                  />
+                </div>
+                <div className="mt-1 flex flex-wrap items-center gap-2">
+                  <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#FAF6F0] border border-[#E8DFD5] text-[11px] font-semibold cursor-pointer hover:bg-gray-100 transition-colors">
+                    <Upload className="w-3.5 h-3.5 text-[#5B4632]" />
+                    <span>{uploadingImage ? (uploadProgressMsg || 'Uploading...') : 'Upload Image (Auto 3-Tier)'}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      disabled={uploadingImage}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          handleTieredImageUpload(file, (url) => {
+                            setEditingPost({ ...editingPost, featuredImage: url });
+                          });
+                        }
+                      }}
+                    />
+                  </label>
+                  {uploadProgressMsg && (
+                    <span className="text-[11px] text-amber-800 font-medium">{uploadProgressMsg}</span>
+                  )}
+                </div>
               </div>
 
               <div>

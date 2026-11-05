@@ -62,6 +62,12 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin() && isValidId(settingsId);
     }
 
+    // Global Settings & Storage Configuration: Public read, Admin write
+    match /settings/{settingsId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin() && isValidId(settingsId);
+    }
+
     // Customer Enquiries: Public create (with validation), Admin full access
     match /enquiries/{enquiryId} {
       allow create: if isValidId(enquiryId)

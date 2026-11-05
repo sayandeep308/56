@@ -90,10 +90,12 @@ export interface SiteSettings {
   whatsappNumber: string;
   phoneNumber: string;
   email: string;
+  adminEmail?: string;
   address: string;
   mapsUrl?: string;
   cloudinaryCloudName: string;
   cloudinaryUploadPreset: string;
+  imgbbApiKey?: string;
   defaultCurrency: string;
   welcomeMessage: string;
   updatedAt?: string;

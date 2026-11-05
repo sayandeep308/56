@@ -172,6 +172,10 @@
       "schema": "SiteSettings",
       "description": "Site-wide configuration and contact info"
     },
+    "/settings/{settingsId}": {
+      "schema": "SiteSettings",
+      "description": "Global persistent settings and cloud storage credentials"
+    },
     "/admins/{adminId}": {
       "schema": "Admin",
       "description": "Collection of authorized admin users"

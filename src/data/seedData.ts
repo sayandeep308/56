@@ -6,10 +6,12 @@ export const INITIAL_SITE_SETTINGS: SiteSettings = {
   whatsappNumber: '+919382176969',
   phoneNumber: '+91 93821 76969',
   email: 'satarupasteelenterprise@gmail.com',
+  adminEmail: 'deep.007.sayan@gmail.com',
   address: 'Madpur Station Bajar, West Bengal, India',
   mapsUrl: 'https://share.google/NJPhQEXIVloDifYAW',
   cloudinaryCloudName: 'demo-artisan',
   cloudinaryUploadPreset: 'artisancraft_preset',
+  imgbbApiKey: '',
   defaultCurrency: 'Rs. ',
   welcomeMessage: 'Welcome to Satarupa Steel Enterprise. Inquire about stainless steel items, aluminium fabrications, bespoke interior woodwork, custom ceilings, and temples.',
 };

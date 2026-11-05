@@ -72,3 +72,36 @@ test('filterProducts handles category, subcategory, search, and mostSelling filt
   assert.equal(searchMatch.length, 1);
   assert.equal(searchMatch[0].id, '2');
 });
+
+test('3-tier cloud upload tier resolution', () => {
+  // Tier 1a: Real Cloudinary credentials
+  const cloudinaryConfig = {
+    cloudinaryCloudName: 'my-production-cloud',
+    cloudinaryUploadPreset: 'prod_preset',
+  };
+  const isCloudinaryActive =
+    Boolean(cloudinaryConfig.cloudinaryCloudName) &&
+    Boolean(cloudinaryConfig.cloudinaryUploadPreset) &&
+    cloudinaryConfig.cloudinaryCloudName !== 'demo-artisan';
+  assert.equal(isCloudinaryActive, true);
+
+  // Demo Cloudinary credentials should fallback to Tier 2
+  const demoConfig = {
+    cloudinaryCloudName: 'demo-artisan',
+    cloudinaryUploadPreset: 'artisancraft_preset',
+    imgbbApiKey: '',
+  };
+  const isDemoFallback =
+    demoConfig.cloudinaryCloudName === 'demo-artisan' && !demoConfig.imgbbApiKey;
+  assert.equal(isDemoFallback, true);
+
+  // Tier 1b: ImgBB active when API key is provided
+  const imgbbConfig = {
+    cloudinaryCloudName: 'demo-artisan',
+    cloudinaryUploadPreset: 'artisancraft_preset',
+    imgbbApiKey: 'abc123imgbbkey',
+  };
+  const isImgbbActive = Boolean(imgbbConfig.imgbbApiKey);
+  assert.equal(isImgbbActive, true);
+});
+

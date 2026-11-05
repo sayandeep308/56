@@ -13,6 +13,11 @@ import {
   getHeroSlides,
   getBlogPosts,
   getSiteSettings,
+  subscribeToCategories,
+  subscribeToProducts,
+  subscribeToHeroSlides,
+  subscribeToBlogPosts,
+  subscribeToSiteSettings,
 } from './services/db';
 import {
   INITIAL_CATEGORIES,
@@ -84,7 +89,35 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    // 1. Initial fast load
     refreshAllData();
+
+    // 2. Real-time subscriptions across all collections
+    const unsubCats = subscribeToCategories((cats) => {
+      setCategories(cats);
+      setLoadingData(false);
+    });
+    const unsubProds = subscribeToProducts((prods) => {
+      setProducts(prods);
+      setLoadingData(false);
+    });
+    const unsubSlides = subscribeToHeroSlides((slds) => {
+      setSlides(slds);
+    });
+    const unsubBlogs = subscribeToBlogPosts((blogs) => {
+      setBlogPosts(blogs);
+    });
+    const unsubSettings = subscribeToSiteSettings((stt) => {
+      setSettings(stt);
+    });
+
+    return () => {
+      unsubCats();
+      unsubProds();
+      unsubSlides();
+      unsubBlogs();
+      unsubSettings();
+    };
   }, [refreshAllData]);
 
   // Route matching logic
