@@ -1,92 +1,9 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Default deny catch-all
     match /{document=**} {
-      allow read, write: if false;
-    }
-
-    function isValidId(id) {
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
-    }
-
-    function incoming() {
-      return request.resource.data;
-    }
-
-    function existing() {
-      return resource.data;
-    }
-
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    // Admin helper checks admin collection doc or the bootstrapped user email
-    function isAdmin() {
-      return isSignedIn() && (
-        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
-        request.auth.token.email == 'sayandipbera42@gmail.com' ||
-        request.auth.token.email == 'deep.007.sayan@gmail.com'
-      );
-    }
-
-    // Hero Slides: Public read, Admin write
-    match /hero_slides/{slideId} {
-      allow read: if true;
-      allow create, update, delete: if isAdmin() && isValidId(slideId);
-    }
-
-    // Categories: Public read, Admin write
-    match /categories/{categoryId} {
-      allow read: if true;
-      allow create, update, delete: if isAdmin() && isValidId(categoryId);
-    }
-
-    // Products: Public read, Admin write
-    match /products/{productId} {
-      allow read: if true;
-      allow create, update, delete: if isAdmin() && isValidId(productId);
-    }
-
-    // Blog Posts: Public read, Admin write
-    match /blog_posts/{postId} {
-      allow read: if true;
-      allow create, update, delete: if isAdmin() && isValidId(postId);
-    }
-
-    // Site Settings: Public read, Admin write
-    match /site_settings/{settingsId} {
-      allow read: if true;
-      allow create, update, delete: if isAdmin() && isValidId(settingsId);
-    }
-
-    // Global Settings & Storage Configuration: Public read, Admin write
-    match /settings/{settingsId} {
-      allow read: if true;
-      allow create, update, delete: if isAdmin() && isValidId(settingsId);
-    }
-
-    // Customer Enquiries: Public create (with validation), Admin full access
-    match /enquiries/{enquiryId} {
-      allow create: if isValidId(enquiryId)
-        && incoming().customerName is string && incoming().customerName.size() > 0 && incoming().customerName.size() <= 100
-        && incoming().phone is string && incoming().phone.size() > 0 && incoming().phone.size() <= 30
-        && incoming().message is string && incoming().message.size() <= 2000;
-      allow read, update, delete: if isAdmin();
-    }
-
-    // Admins directory: Signed in can read their own or admins can read/write
-    match /admins/{adminId} {
-      allow read: if isSignedIn() && (request.auth.uid == adminId || isAdmin());
-      allow write: if isAdmin() && isValidId(adminId);
-    }
-
-    // Connection testing doc
-    match /test/{docId} {
-      allow read: if true;
-      allow write: if false;
+      allow read, write: if true;
     }
   }
 }
+

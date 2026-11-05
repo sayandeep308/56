@@ -27,6 +27,7 @@ import {
   INITIAL_BLOG_POSTS,
   INITIAL_SITE_SETTINGS,
 } from '../data/seedData';
+import { cleanFirestorePayload } from '../utils/sanitize';
 
 // Local storage fallback keys for offline / instant-paint resilience
 const STORAGE_PREFIX = 'artisancraft_';
@@ -122,12 +123,14 @@ export async function saveHeroSlide(slide: Partial<HeroSlide> & { title: string 
     : [...current, payload as HeroSlide];
   setLocal('hero_slides', updated);
 
-  // 2. Persist to Firestore
+  // 2. Persist to Firestore with clean payload (no undefined values)
   try {
-    await setDoc(doc(db, 'hero_slides', slideId), payload);
+    const cleanData = cleanFirestorePayload(payload);
+    await setDoc(doc(db, 'hero_slides', slideId), cleanData);
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, `hero_slides/${slideId}`);
   }
+
 
   return payload as HeroSlide;
 }
@@ -206,12 +209,14 @@ export async function saveCategory(category: Category): Promise<Category> {
     : [...current, payload];
   setLocal('categories', updated);
 
-  // 2. Persist to Firestore
+  // 2. Persist to Firestore with clean payload (no undefined values)
   try {
-    await setDoc(doc(db, 'categories', catId), payload);
+    const cleanData = cleanFirestorePayload(payload);
+    await setDoc(doc(db, 'categories', catId), cleanData);
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, `categories/${catId}`);
   }
+
 
   return payload;
 }
@@ -294,12 +299,14 @@ export async function saveProduct(product: Product): Promise<Product> {
     : [...current, payload];
   setLocal('products', updated);
 
-  // 2. Persist to live Firestore
+  // 2. Persist to live Firestore with clean payload (no undefined values)
   try {
-    await setDoc(doc(db, 'products', prodId), payload);
+    const cleanData = cleanFirestorePayload(payload);
+    await setDoc(doc(db, 'products', prodId), cleanData);
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, `products/${prodId}`);
   }
+
 
   return payload;
 }
@@ -381,12 +388,14 @@ export async function saveBlogPost(post: BlogPost): Promise<BlogPost> {
     : [...current, payload];
   setLocal('blog_posts', updated);
 
-  // 2. Persist to Firestore
+  // 2. Persist to Firestore with clean payload (no undefined values)
   try {
-    await setDoc(doc(db, 'blog_posts', postId), payload);
+    const cleanData = cleanFirestorePayload(payload);
+    await setDoc(doc(db, 'blog_posts', postId), cleanData);
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, `blog_posts/${postId}`);
   }
+
 
   return payload;
 }
@@ -555,16 +564,18 @@ export async function saveSiteSettings(settings: SiteSettings): Promise<SiteSett
   // 1. Immediately cache in local storage
   setLocal('site_settings', payload);
 
-  // 2. Persist to Firestore
+  // 2. Persist to Firestore with clean payload (no undefined values)
   try {
+    const cleanData = cleanFirestorePayload(payload);
     // Write atomically to both settings/globalConfig and site_settings/default
     await Promise.all([
-      setDoc(doc(db, 'settings', 'globalConfig'), payload),
-      setDoc(doc(db, 'site_settings', 'default'), { ...payload, id: 'default' }),
+      setDoc(doc(db, 'settings', 'globalConfig'), cleanData),
+      setDoc(doc(db, 'site_settings', 'default'), { ...cleanData, id: 'default' }),
     ]);
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, 'settings/globalConfig');
   }
+
 
   return payload;
 }

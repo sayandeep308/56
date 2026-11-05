@@ -69,10 +69,21 @@ export async function compressImageToDataUrl(
           dataUrl = canvas.toDataURL(mimeType, quality);
         }
 
-        // Keep payload small (under 150KB) if possible
+        // Keep payload small (under 150KB - 250KB) and never exceed 500KB
         const approxBytes = dataUrl.length * 0.75;
-        if (approxBytes > 150 * 1024 && quality > 0.5) {
-          dataUrl = canvas.toDataURL(mimeType, 0.5);
+        if (approxBytes > 400 * 1024) {
+          // Re-encode at lower dimension if still large
+          const smallerCanvas = document.createElement('canvas');
+          const scale = 0.7;
+          smallerCanvas.width = Math.max(1, Math.round(canvas.width * scale));
+          smallerCanvas.height = Math.max(1, Math.round(canvas.height * scale));
+          const sCtx = smallerCanvas.getContext('2d');
+          if (sCtx) {
+            sCtx.drawImage(canvas, 0, 0, smallerCanvas.width, smallerCanvas.height);
+            dataUrl = smallerCanvas.toDataURL(mimeType, 0.65);
+          }
+        } else if (approxBytes > 150 * 1024 && quality > 0.5) {
+          dataUrl = canvas.toDataURL(mimeType, 0.55);
         }
 
         resolve(dataUrl);
@@ -82,6 +93,7 @@ export async function compressImageToDataUrl(
     reader.readAsDataURL(file);
   });
 }
+
 
 /**
  * Uploads an image to Cloudinary using unsigned upload preset.
