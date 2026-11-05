@@ -190,6 +190,9 @@ export const AdminPage: React.FC<AdminPageProps> = ({
   };
 
   const handleSeedAllToFirestore = async () => {
+    if (!currentUser) {
+      await ensureCloudAuth();
+    }
     if (!confirm('This will seed/sync all 7 core categories, products, slides, blogs, and settings into your live Firestore database. Proceed?')) {
       return;
     }
@@ -205,6 +208,26 @@ export const AdminPage: React.FC<AdminPageProps> = ({
     setTimeout(() => setSyncStatus({ loading: false, msg: '' }), 5000);
   };
 
+  // Cloud Authentication Check
+  const ensureCloudAuth = async (): Promise<boolean> => {
+    if (currentUser) return true;
+    const proceed = confirm(
+      'Live Firestore Cloud Authentication:\n\n' +
+      'Saving directly to your live Firebase database requires Google Admin authentication (deep.007.sayan@gmail.com).\n\n' +
+      'Click OK to Sign In with Google now to sync to live Firestore, or Cancel to save in local session cache.'
+    );
+    if (proceed) {
+      try {
+        await loginWithGoogle();
+        return true;
+      } catch (err) {
+        console.warn('Google sign-in cancelled or failed:', err);
+        return false;
+      }
+    }
+    return false;
+  };
+
   // -------------------------------------------------------------
   // HERO SLIDE ACTIONS
   // -------------------------------------------------------------
@@ -214,22 +237,39 @@ export const AdminPage: React.FC<AdminPageProps> = ({
       alert('Please provide Slide Title and Image URL');
       return;
     }
+    if (!currentUser) {
+      await ensureCloudAuth();
+    }
     try {
       await saveHeroSlide(editingSlide as any);
       await onRefreshAllData();
       setEditingSlide(null);
+      if (currentUser) {
+        alert('Hero banner slide saved and synced to live Firestore!');
+      } else {
+        alert('Slide saved to local cache! Click "Sign In with Google for Cloud Writes" at the top to sync to live Firestore.');
+      }
     } catch (err: any) {
-      alert(`Save slide error: ${err.message}`);
+      if (err.message && err.message.includes('insufficient permissions')) {
+        alert('Slide saved to local cache. Live Firestore requires Google Admin login (deep.007.sayan@gmail.com). Please sign in at the top.');
+        setEditingSlide(null);
+        await onRefreshAllData();
+      } else {
+        alert(`Save slide notice: ${err.message}`);
+      }
     }
   };
 
   const handleDeleteSlide = async (id: string) => {
     if (!confirm('Are you sure you want to delete this hero slide?')) return;
+    if (!currentUser) {
+      await ensureCloudAuth();
+    }
     try {
       await deleteHeroSlide(id);
       await onRefreshAllData();
     } catch (err: any) {
-      alert(`Delete error: ${err.message}`);
+      alert(`Delete notice: ${err.message}`);
     }
   };
 
@@ -253,23 +293,41 @@ export const AdminPage: React.FC<AdminPageProps> = ({
       subcategories: editingCategory.subcategories || [],
     };
 
+    if (!currentUser) {
+      await ensureCloudAuth();
+    }
+
     try {
       await saveCategory(payload);
       await onRefreshAllData();
       setEditingCategory(null);
       setNewSubcategoryInput('');
+      if (currentUser) {
+        alert('Category saved and synced to live Firestore!');
+      } else {
+        alert('Category saved to local cache! Click "Sign In with Google for Cloud Writes" at the top to sync to live Firestore.');
+      }
     } catch (err: any) {
-      alert(`Save category error: ${err.message}`);
+      if (err.message && err.message.includes('insufficient permissions')) {
+        alert('Category saved to local cache. Live Firestore requires Google Admin login (deep.007.sayan@gmail.com). Please sign in at the top.');
+        setEditingCategory(null);
+        await onRefreshAllData();
+      } else {
+        alert(`Save category notice: ${err.message}`);
+      }
     }
   };
 
   const handleDeleteCategory = async (id: string) => {
     if (!confirm('Delete this category and its subcategories?')) return;
+    if (!currentUser) {
+      await ensureCloudAuth();
+    }
     try {
       await deleteCategory(id);
       await onRefreshAllData();
     } catch (err: any) {
-      alert(`Delete category error: ${err.message}`);
+      alert(`Delete notice: ${err.message}`);
     }
   };
 
@@ -307,6 +365,10 @@ export const AdminPage: React.FC<AdminPageProps> = ({
       featured: Boolean(editingProduct.featured),
     };
 
+    if (!currentUser) {
+      await ensureCloudAuth();
+    }
+
     try {
       await saveProduct(payload);
       await onRefreshAllData();
@@ -314,18 +376,32 @@ export const AdminPage: React.FC<AdminPageProps> = ({
       setNewImageUrlInput('');
       setNewSpecKey('');
       setNewSpecVal('');
+      if (currentUser) {
+        alert('Product saved and synced to live Firestore successfully!');
+      } else {
+        alert('Product saved in local browser cache! Click "Sign In with Google for Cloud Writes" at the top to publish directly to live Firestore.');
+      }
     } catch (err: any) {
-      alert(`Save product error: ${err.message}`);
+      if (err.message && err.message.includes('insufficient permissions')) {
+        alert('Product preserved in local browser cache! Live Firestore write was blocked because you are not authenticated with an authorized Google Admin account (deep.007.sayan@gmail.com). Please click "Sign In with Google for Cloud Writes" at the top of the admin page.');
+        setEditingProduct(null);
+        await onRefreshAllData();
+      } else {
+        alert(`Save product notice: ${err.message}`);
+      }
     }
   };
 
   const handleDeleteProduct = async (id: string) => {
     if (!confirm('Delete this product permanently?')) return;
+    if (!currentUser) {
+      await ensureCloudAuth();
+    }
     try {
       await deleteProduct(id);
       await onRefreshAllData();
     } catch (err: any) {
-      alert(`Delete product error: ${err.message}`);
+      alert(`Delete product notice: ${err.message}`);
     }
   };
 
@@ -356,23 +432,41 @@ export const AdminPage: React.FC<AdminPageProps> = ({
       readTimeMinutes: Number(editingPost.readTimeMinutes) || 5,
     };
 
+    if (!currentUser) {
+      await ensureCloudAuth();
+    }
+
     try {
       await saveBlogPost(payload);
       await onRefreshAllData();
       setEditingPost(null);
       setNewKeywordInput('');
+      if (currentUser) {
+        alert('Blog article saved and synced to live Firestore!');
+      } else {
+        alert('Article saved to local cache! Click "Sign In with Google for Cloud Writes" at the top to sync to live Firestore.');
+      }
     } catch (err: any) {
-      alert(`Save blog error: ${err.message}`);
+      if (err.message && err.message.includes('insufficient permissions')) {
+        alert('Blog post saved to local cache. Live Firestore requires Google Admin login (deep.007.sayan@gmail.com). Please sign in at the top.');
+        setEditingPost(null);
+        await onRefreshAllData();
+      } else {
+        alert(`Save blog notice: ${err.message}`);
+      }
     }
   };
 
   const handleDeleteBlogPost = async (id: string) => {
     if (!confirm('Delete this blog post?')) return;
+    if (!currentUser) {
+      await ensureCloudAuth();
+    }
     try {
       await deleteBlogPost(id);
       await onRefreshAllData();
     } catch (err: any) {
-      alert(`Delete blog error: ${err.message}`);
+      alert(`Delete blog notice: ${err.message}`);
     }
   };
 
@@ -386,7 +480,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
         prev.map((e) => (e.id === id ? { ...e, status } : e))
       );
     } catch (err: any) {
-      alert(`Status update error: ${err.message}`);
+      alert(`Status update notice: ${err.message}`);
     }
   };
 
@@ -395,12 +489,23 @@ export const AdminPage: React.FC<AdminPageProps> = ({
   // -------------------------------------------------------------
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!currentUser) {
+      await ensureCloudAuth();
+    }
     try {
       await saveSiteSettings(settingsForm);
       await onRefreshAllData();
-      alert('Settings synced successfully to Firestore (settings/globalConfig)! Active across all domains and devices.');
+      if (currentUser) {
+        alert('Settings synced successfully to Firestore (settings/globalConfig)! Active across all domains and devices.');
+      } else {
+        alert('Settings saved to local cache! Click "Sign In with Google for Cloud Writes" at the top to sync to live Firestore.');
+      }
     } catch (err: any) {
-      alert(`Save settings error: ${err.message}`);
+      if (err.message && err.message.includes('insufficient permissions')) {
+        alert('Settings saved to local cache. Live Firestore requires Google Admin login (deep.007.sayan@gmail.com). Please sign in at the top.');
+      } else {
+        alert(`Save settings notice: ${err.message}`);
+      }
     }
   };
 
@@ -434,8 +539,38 @@ export const AdminPage: React.FC<AdminPageProps> = ({
             </div>
           )}
 
+          {/* Primary Recommended: Google Admin Sign In */}
+          <div className="p-4 rounded-2xl bg-amber-50/80 border border-[#F4D9A0] text-left space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-[#C8792C] text-white">
+                Recommended
+              </span>
+              <span className="text-xs font-bold text-[#2C221E]">
+                Direct Live Firestore Access
+              </span>
+            </div>
+            <p className="text-[11px] text-[#5A4E46] leading-relaxed">
+              Sign in with your authorized Google Admin account (<strong className="text-[#2C221E]">deep.007.sayan@gmail.com</strong>) to immediately read, create, and edit products directly in the live Firestore cloud database.
+            </p>
+            <button
+              type="button"
+              onClick={loginWithGoogle}
+              className="w-full btn-wood-gold py-2.5 text-xs font-bold flex items-center justify-center gap-2 shadow-sm"
+            >
+              <LogIn className="w-4 h-4 text-[#5B4632]" />
+              <span>Sign In with Google Admin</span>
+            </button>
+          </div>
+
+          <div className="relative py-1 flex items-center justify-center">
+            <span className="h-px bg-[#E8DFD5] w-full" />
+            <span className="text-[10px] text-[#5A4E46] bg-white px-2 absolute uppercase font-bold tracking-wider">
+              Or Master Password (Local Admin)
+            </span>
+          </div>
+
           {/* Password Form */}
-          <form onSubmit={handlePasswordLogin} className="space-y-4 pt-1">
+          <form onSubmit={handlePasswordLogin} className="space-y-3 pt-1">
             <div className="text-left">
               <label className="block text-xs font-semibold text-[#2C221E] mb-1">
                 Administrator Password
@@ -444,7 +579,6 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                 <input
                   type={showPassword ? 'text' : 'password'}
                   required
-                  autoFocus
                   value={enteredPassword}
                   onChange={(e) => setEnteredPassword(e.target.value)}
                   placeholder="Enter administrator password..."
@@ -462,27 +596,12 @@ export const AdminPage: React.FC<AdminPageProps> = ({
 
             <button
               type="submit"
-              className="w-full btn-gold-pill py-3 text-sm font-bold flex items-center justify-center gap-2 shadow-md"
+              className="w-full btn-gold-pill py-2.5 text-xs font-bold flex items-center justify-center gap-2 shadow-md"
             >
               <ShieldCheck className="w-4 h-4 text-[#241403]" />
-              <span>Unlock Admin Panel</span>
+              <span>Unlock with Password (Satarupa9908)</span>
             </button>
           </form>
-
-          <div className="relative py-2 flex items-center justify-center">
-            <span className="h-px bg-[#E8DFD5] w-full" />
-            <span className="text-[11px] text-[#5A4E46] bg-white px-2 absolute uppercase font-medium">
-              Or Firebase Auth
-            </span>
-          </div>
-
-          <button
-            onClick={loginWithGoogle}
-            className="w-full btn-wood-gold py-2.5 text-xs font-semibold flex items-center justify-center gap-2"
-          >
-            <LogIn className="w-4 h-4 text-[#5B4632]" />
-            <span>Sign In with Google</span>
-          </button>
 
           <div className="pt-2 border-t border-[#FAF6F0] text-center">
             <button
@@ -502,56 +621,96 @@ export const AdminPage: React.FC<AdminPageProps> = ({
   // =============================================================
   return (
     <div className="py-8 bg-[#FAF6F0] min-h-screen">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
         {/* Top Admin Bar */}
         <div className="bg-[#5B4632] text-white rounded-2xl p-6 border border-[#F4D9A0]/30 shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <TilakLogo size="md" />
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="font-serif text-xl sm:text-2xl font-bold text-[#FAF6F0]">
                   Satarupa Steel Enterprise Administration
                 </h1>
-                {isDemoAdmin && (
-                  <span className="px-2 py-0.5 rounded-md bg-[#C8792C] text-white text-[10px] font-bold uppercase tracking-wider">
-                    Authorized
+                {currentUser ? (
+                  <span className="px-2.5 py-0.5 rounded-md bg-emerald-600 text-white text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 shadow-xs">
+                    <CheckCircle className="w-3 h-3 text-emerald-200" />
+                    <span>Cloud Admin: {currentUser.email}</span>
+                  </span>
+                ) : (
+                  <span className="px-2.5 py-0.5 rounded-md bg-amber-500 text-black text-[10px] font-bold uppercase tracking-wider">
+                    Local Session (Password Unlocked)
                   </span>
                 )}
               </div>
-              <p className="text-xs text-[#F4D9A0]/80">
-                Madpur Station Bajar &bull; Master Password Protected &bull; Live Firestore Connected
+              <p className="text-xs text-[#F4D9A0]/80 mt-0.5">
+                Madpur Station Bajar &bull; Master Protected &bull; {currentUser ? 'Live Firestore Cloud Connected' : 'Google Login Recommended for Cloud Writes'}
               </p>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
+            {!currentUser && (
+              <button
+                onClick={loginWithGoogle}
+                className="btn-wood-gold text-xs px-3.5 py-2.5 font-bold flex items-center gap-1.5 shadow-sm animate-pulse"
+                title="Sign in with Google so your product additions and edits write directly to live Firestore"
+              >
+                <LogIn className="w-3.5 h-3.5 text-[#5B4632]" />
+                <span>Sign In with Google for Cloud Writes</span>
+              </button>
+            )}
+
             <button
               onClick={handleSeedAllToFirestore}
               disabled={syncStatus.loading}
-              className="btn-wood-gold text-xs px-4 py-2.5 font-semibold flex items-center gap-1.5 shadow-sm"
+              className="px-3.5 py-2.5 rounded-lg bg-[#463525] hover:bg-[#6B523B] border border-[#F4D9A0]/40 text-xs font-semibold text-[#F4D9A0] flex items-center gap-1.5 transition-colors shadow-sm"
               title="Populates all categories, products, slides, blogs, and settings into Firestore"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${syncStatus.loading ? 'animate-spin' : ''}`} />
-              <span>{syncStatus.loading ? 'Syncing...' : 'Sync All Seed Data to Firestore'}</span>
+              <span>{syncStatus.loading ? 'Syncing...' : 'Sync All Seed Data'}</span>
             </button>
 
             <button
               onClick={() => onNavigate('/')}
-              className="px-3.5 py-2 rounded-lg bg-[#463525] hover:bg-[#6B523B] border border-[#F4D9A0]/40 text-xs font-semibold text-[#F4D9A0] flex items-center gap-1.5 transition-colors"
+              className="px-3.5 py-2.5 rounded-lg bg-[#463525] hover:bg-[#6B523B] border border-[#F4D9A0]/40 text-xs font-semibold text-[#F4D9A0] flex items-center gap-1.5 transition-colors"
             >
               <Eye className="w-3.5 h-3.5" />
-              <span>View Public Website</span>
+              <span>View Site</span>
             </button>
 
             <button
               onClick={handleAdminLogout}
-              className="p-2 rounded-lg bg-red-950/40 hover:bg-red-900 border border-red-500/40 text-red-200 text-xs font-semibold flex items-center gap-1 transition-colors"
+              className="p-2.5 rounded-lg bg-red-950/40 hover:bg-red-900 border border-red-500/40 text-red-200 text-xs font-semibold flex items-center gap-1 transition-colors"
               title="Lock Admin Portal & Sign Out"
             >
               <LogOut className="w-4 h-4" />
             </button>
           </div>
         </div>
+
+        {/* Local Session Warning Banner */}
+        {!currentUser && (
+          <div className="p-4 rounded-xl bg-amber-50 border border-amber-300 text-amber-950 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-start gap-2.5">
+              <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold text-amber-900 text-sm">
+                  Local Session Mode Active (Live Firestore Cloud writes require Google Admin login)
+                </p>
+                <p className="text-xs text-amber-800 mt-1 leading-relaxed">
+                  You are currently authenticated via password (<code className="font-mono bg-white px-1.5 py-0.5 rounded border border-amber-200">Satarupa9908</code>). Any products you create are safely saved in your browser cache. To publish and sync directly to live Firestore, please sign in with your authorized Google Admin account (<strong className="font-mono text-amber-950">deep.007.sayan@gmail.com</strong>).
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={loginWithGoogle}
+              className="btn-wood text-xs px-4 py-2.5 font-bold whitespace-nowrap flex items-center gap-2 shrink-0 self-start sm:self-auto shadow-md"
+            >
+              <LogIn className="w-4 h-4 text-[#F4D9A0]" />
+              <span>Sign In with Google</span>
+            </button>
+          </div>
+        )}
 
         {/* Sync Status Banner */}
         {syncStatus.msg && (

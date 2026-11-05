@@ -115,18 +115,20 @@ export async function saveHeroSlide(slide: Partial<HeroSlide> & { title: string 
     updatedAt: new Date().toISOString(),
   };
 
+  // 1. Update local cache immediately
+  const current = getLocal('hero_slides', INITIAL_HERO_SLIDES);
+  const updated = current.some((s) => s.id === slideId)
+    ? current.map((s) => (s.id === slideId ? (payload as HeroSlide) : s))
+    : [...current, payload as HeroSlide];
+  setLocal('hero_slides', updated);
+
+  // 2. Persist to Firestore
   try {
     await setDoc(doc(db, 'hero_slides', slideId), payload);
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, `hero_slides/${slideId}`);
   }
 
-  // Update local cache
-  const current = getLocal('hero_slides', INITIAL_HERO_SLIDES);
-  const updated = current.some((s) => s.id === slideId)
-    ? current.map((s) => (s.id === slideId ? (payload as HeroSlide) : s))
-    : [...current, payload as HeroSlide];
-  setLocal('hero_slides', updated);
   return payload as HeroSlide;
 }
 
@@ -197,17 +199,20 @@ export async function saveCategory(category: Category): Promise<Category> {
     updatedAt: new Date().toISOString(),
   };
 
+  // 1. Update local cache immediately
+  const current = getLocal('categories', INITIAL_CATEGORIES);
+  const updated = current.some((c) => c.id === catId)
+    ? current.map((c) => (c.id === catId ? payload : c))
+    : [...current, payload];
+  setLocal('categories', updated);
+
+  // 2. Persist to Firestore
   try {
     await setDoc(doc(db, 'categories', catId), payload);
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, `categories/${catId}`);
   }
 
-  const current = getLocal('categories', INITIAL_CATEGORIES);
-  const updated = current.some((c) => c.id === catId)
-    ? current.map((c) => (c.id === catId ? payload : c))
-    : [...current, payload];
-  setLocal('categories', updated);
   return payload;
 }
 
@@ -282,17 +287,20 @@ export async function saveProduct(product: Product): Promise<Product> {
     updatedAt: new Date().toISOString(),
   };
 
+  // 1. Immediately cache in local storage so user data is never lost
+  const current = getLocal('products', INITIAL_PRODUCTS);
+  const updated = current.some((p) => p.id === prodId)
+    ? current.map((p) => (p.id === prodId ? payload : p))
+    : [...current, payload];
+  setLocal('products', updated);
+
+  // 2. Persist to live Firestore
   try {
     await setDoc(doc(db, 'products', prodId), payload);
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, `products/${prodId}`);
   }
 
-  const current = getLocal('products', INITIAL_PRODUCTS);
-  const updated = current.some((p) => p.id === prodId)
-    ? current.map((p) => (p.id === prodId ? payload : p))
-    : [...current, payload];
-  setLocal('products', updated);
   return payload;
 }
 
@@ -366,17 +374,20 @@ export async function saveBlogPost(post: BlogPost): Promise<BlogPost> {
     updatedAt: new Date().toISOString(),
   };
 
+  // 1. Update local cache immediately
+  const current = getLocal('blog_posts', INITIAL_BLOG_POSTS);
+  const updated = current.some((b) => b.id === postId)
+    ? current.map((b) => (b.id === postId ? payload : b))
+    : [...current, payload];
+  setLocal('blog_posts', updated);
+
+  // 2. Persist to Firestore
   try {
     await setDoc(doc(db, 'blog_posts', postId), payload);
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, `blog_posts/${postId}`);
   }
 
-  const current = getLocal('blog_posts', INITIAL_BLOG_POSTS);
-  const updated = current.some((b) => b.id === postId)
-    ? current.map((b) => (b.id === postId ? payload : b))
-    : [...current, payload];
-  setLocal('blog_posts', updated);
   return payload;
 }
 
@@ -541,6 +552,10 @@ export async function saveSiteSettings(settings: SiteSettings): Promise<SiteSett
     updatedAt: new Date().toISOString(),
   };
 
+  // 1. Immediately cache in local storage
+  setLocal('site_settings', payload);
+
+  // 2. Persist to Firestore
   try {
     // Write atomically to both settings/globalConfig and site_settings/default
     await Promise.all([
@@ -551,7 +566,6 @@ export async function saveSiteSettings(settings: SiteSettings): Promise<SiteSett
     handleFirestoreError(error, OperationType.WRITE, 'settings/globalConfig');
   }
 
-  setLocal('site_settings', payload);
   return payload;
 }
 
