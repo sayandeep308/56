@@ -40,7 +40,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setCurrentUser(user);
       if (user) {
         // Check if user is known admin email or has document in admins
-        const isEmailAdmin = user.email === 'sayandipbera42@gmail.com';
+        const isEmailAdmin = user.email === 'sayandipbera42@gmail.com' || user.email === 'deep.007.sayan@gmail.com';
         if (isEmailAdmin) {
           setIsAdmin(true);
           try {
@@ -75,7 +75,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
-      if (user.email === 'sayandipbera42@gmail.com') {
+      if (user.email === 'sayandipbera42@gmail.com' || user.email === 'deep.007.sayan@gmail.com') {
         setIsAdmin(true);
         try {
           await setDoc(doc(db, 'admins', user.uid), {
