@@ -158,7 +158,7 @@ export default function App() {
     // Blog Post Detail: /blog/:slug
     if (pathWithoutQuery.startsWith('/blog/') && pathWithoutQuery !== '/blog') {
       const slug = pathWithoutQuery.replace('/blog/', '').trim();
-      const post = blogPosts.find((b) => b.slug === slug || b.id === slug) || blogPosts[0];
+      const post = blogPosts.find((b) => b.slug === slug || b.id === slug);
 
       if (!post) {
         return (

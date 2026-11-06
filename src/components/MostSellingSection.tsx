@@ -42,7 +42,7 @@ export const MostSellingSection: React.FC<MostSellingSectionProps> = ({
             shape="wide"
             size="sm"
             onClick={() => onNavigate('/products?mostSelling=1')}
-            iconRight={<ArrowRight className="w-4 h-4 text-[#FFF8EA]" />}
+            iconRight={<ArrowRight className="w-4 h-4 text-[#1E2433]" />}
             className="shrink-0 self-start md:self-auto"
           >
             View All Bestsellers

@@ -59,7 +59,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             shape="wide"
             size="sm"
             onClick={() => onNavigate(`/product/${product.slug}`)}
-            iconRight={<ArrowUpRight className="w-3.5 h-3.5 ml-1 text-[#FFF8EA]" />}
+            iconRight={<ArrowUpRight className="w-3.5 h-3.5 ml-1 text-[#1E2433]" />}
           >
             Full Specifications
           </LuxuryButton>

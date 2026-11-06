@@ -54,10 +54,10 @@ export const HomePage: React.FC<HomePageProps> = ({
               onClick={() => onNavigate('/products?category=puja-corner')}
               className="group"
             >
-              <div className="flex flex-col items-center justify-center h-full space-y-2">
-                <Sparkles className="w-6 h-6 text-[#FFF8EA]" />
+              <div className="flex flex-col items-center justify-center h-full space-y-2 text-[#1E2433]">
+                <Sparkles className="w-6 h-6 text-[#1E2433]" />
                 <span className="font-bold text-xs tracking-wider">Puja Corner</span>
-                <span className="text-[10px] opacity-80 normal-case font-normal">Mandirs &amp; Devalayas</span>
+                <span className="text-[10px] text-[#4A5162] normal-case font-medium">Mandirs &amp; Devalayas</span>
               </div>
             </LuxuryButton>
 
@@ -67,10 +67,10 @@ export const HomePage: React.FC<HomePageProps> = ({
               onClick={() => onNavigate('/products?category=stainless-steel-items')}
               className="group"
             >
-              <div className="flex flex-col items-center justify-center h-full space-y-2">
-                <Shield className="w-6 h-6 text-[#F4D9A0]" />
+              <div className="flex flex-col items-center justify-center h-full space-y-2 text-[#1E2433]">
+                <Shield className="w-6 h-6 text-[#1E2433]" />
                 <span className="font-bold text-xs tracking-wider">Stainless Steel</span>
-                <span className="text-[10px] opacity-80 normal-case font-normal">PVD Gold &amp; Railings</span>
+                <span className="text-[10px] text-[#4A5162] normal-case font-medium">PVD Gold &amp; Railings</span>
               </div>
             </LuxuryButton>
 
@@ -80,10 +80,10 @@ export const HomePage: React.FC<HomePageProps> = ({
               onClick={() => onNavigate('/products?category=aluminium-items')}
               className="group"
             >
-              <div className="flex flex-col items-center justify-center h-full space-y-2">
-                <Compass className="w-6 h-6 text-[#FFFDF9]" />
+              <div className="flex flex-col items-center justify-center h-full space-y-2 text-[#1E2433]">
+                <Compass className="w-6 h-6 text-[#1E2433]" />
                 <span className="font-bold text-xs tracking-wider">Aluminium</span>
-                <span className="text-[10px] opacity-80 normal-case font-normal">Slimline Partitions</span>
+                <span className="text-[10px] text-[#4A5162] normal-case font-medium">Slimline Partitions</span>
               </div>
             </LuxuryButton>
 
@@ -93,10 +93,10 @@ export const HomePage: React.FC<HomePageProps> = ({
               onClick={() => onNavigate('/products?category=ceiling-customisation')}
               className="group"
             >
-              <div className="flex flex-col items-center justify-center h-full space-y-2">
-                <Hammer className="w-6 h-6 text-[#5B4632]" />
+              <div className="flex flex-col items-center justify-center h-full space-y-2 text-[#1E2433]">
+                <Hammer className="w-6 h-6 text-[#1E2433]" />
                 <span className="font-bold text-xs tracking-wider">Ceilings</span>
-                <span className="text-[10px] opacity-80 normal-case font-normal">Wooden Rafters</span>
+                <span className="text-[10px] text-[#4A5162] normal-case font-medium">Wooden Rafters</span>
               </div>
             </LuxuryButton>
 
@@ -106,10 +106,10 @@ export const HomePage: React.FC<HomePageProps> = ({
               onClick={() => onNavigate('/products?category=furniture-and-furnishings')}
               className="group"
             >
-              <div className="flex flex-col items-center justify-center h-full space-y-2">
-                <BookOpen className="w-6 h-6 text-[#FFF8EA]" />
+              <div className="flex flex-col items-center justify-center h-full space-y-2 text-[#1E2433]">
+                <BookOpen className="w-6 h-6 text-[#1E2433]" />
                 <span className="font-bold text-xs tracking-wider">Furniture</span>
-                <span className="text-[10px] opacity-80 normal-case font-normal">Solid Teak Wood</span>
+                <span className="text-[10px] text-[#4A5162] normal-case font-medium">Solid Teak Wood</span>
               </div>
             </LuxuryButton>
           </div>

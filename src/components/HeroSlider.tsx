@@ -90,7 +90,7 @@ export const HeroSlider: React.FC<HeroSliderProps> = ({ slides, onNavigate }) =>
               shape="wide"
               size="lg"
               onClick={() => onNavigate(currentSlide.ctaLink || '/products')}
-              iconRight={<ArrowRight className="w-4 h-4 text-[#FFF8EA]" />}
+              iconRight={<ArrowRight className="w-4 h-4 text-[#1E2433]" />}
               className="text-center justify-center min-h-[44px]"
             >
               {currentSlide.ctaText || 'Explore Catalog'}

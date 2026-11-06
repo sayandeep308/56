@@ -91,7 +91,7 @@ export const CategoryShowcaseSection: React.FC<CategoryShowcaseSectionProps> = (
                   shape="wide"
                   size="sm"
                   onClick={() => onNavigate(`/products?category=${category.slug}`)}
-                  iconRight={<ArrowRight className="w-4 h-4 text-[#FFF8EA]" />}
+                  iconRight={<ArrowRight className="w-4 h-4 text-[#1E2433]" />}
                   className="self-start lg:self-auto shrink-0"
                 >
                   Explore All {category.name}

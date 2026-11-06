@@ -124,20 +124,20 @@ export const LuxuryButton: React.FC<LuxuryButtonProps> = ({
         />
       </span>
 
-      {/* 2. Button Foreground Content with Adaptive Slate-to-White Contrast */}
-      <span className="relative z-10 flex items-center justify-center gap-2 font-medium tracking-tight">
+      {/* 2. Button Foreground Content: High-contrast solid typography (no color-splitting gradient) */}
+      <span className="relative z-10 flex items-center justify-center gap-2 font-semibold tracking-tight text-[#1E2433] group-hover:text-[#111827] transition-colors duration-200">
         {icon && (
-          <span className="inline-flex shrink-0 items-center justify-center text-[#4A5162] group-hover:scale-105 transition-transform duration-200">
+          <span className="inline-flex shrink-0 items-center justify-center text-[#1E2433] group-hover:scale-105 transition-transform duration-200">
             {icon}
           </span>
         )}
         {children && (
-          <span className="btn-glass-text-contrast select-none">
+          <span className="btn-glass-text-solid select-none text-[#1E2433]">
             {children}
           </span>
         )}
         {iconRight && (
-          <span className="inline-flex shrink-0 items-center justify-center text-white/95 group-hover:translate-x-1 transition-transform duration-200 drop-shadow-xs">
+          <span className="inline-flex shrink-0 items-center justify-center text-[#1E2433] group-hover:translate-x-1 transition-transform duration-200">
             {iconRight}
           </span>
         )}

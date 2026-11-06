@@ -196,7 +196,7 @@ export const CustomerEnquiryForm: React.FC<CustomerEnquiryFormProps> = ({
           variant="burnt-amber"
           shape="wide"
           size="md"
-          icon={<Send className="w-4 h-4 text-[#FFF8EA]" />}
+          icon={<Send className="w-4 h-4 text-[#1E2433]" />}
         >
           {loading ? 'Submitting Enquiry...' : 'Submit Official Enquiry'}
         </LuxuryButton>
