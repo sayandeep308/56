@@ -128,7 +128,7 @@ export default function App() {
     // Product Detail: /product/:slug
     if (pathWithoutQuery.startsWith('/product/')) {
       const slug = pathWithoutQuery.replace('/product/', '').trim();
-      const product = products.find((p) => p.slug === slug || p.id === slug) || products[0];
+      const product = products.find((p) => p.slug === slug || p.id === slug);
 
       if (!product) {
         return (

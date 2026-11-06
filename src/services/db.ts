@@ -527,7 +527,7 @@ export async function saveSiteSettings(settings: SiteSettings): Promise<SiteSett
 }
 
 // ================= SEED ALL DATA HELPER =================
-export async function seedAllInitialDataToFirestore(): Promise<{ success: boolean; message: string }> {
+export async function seedAllInitialDataToRealtimeDb(): Promise<{ success: boolean; message: string }> {
   try {
     // 1. Site Settings
     await set(ref(db, 'settings/globalConfig'), cleanDatabasePayload({ ...INITIAL_SITE_SETTINGS, id: 'globalConfig' }));
@@ -579,3 +579,6 @@ export async function seedAllInitialDataToFirestore(): Promise<{ success: boolea
     };
   }
 }
+
+// Retain alias for backward compatibility
+export const seedAllInitialDataToFirestore = seedAllInitialDataToRealtimeDb;

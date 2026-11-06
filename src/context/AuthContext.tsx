@@ -1,118 +1,55 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User, onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
-import { ref, set } from 'firebase/database';
-import { auth, db, googleProvider } from '../lib/firebase';
+import React, { createContext, useContext, useState } from 'react';
+import { auth } from '../lib/firebase';
+import { signOut } from 'firebase/auth';
+
+/**
+ * Lightweight local-credential admin auth.
+ * - Default password: admin123 (changeable from Settings tab → stored in RTDB)
+ * - Session persisted in localStorage so refreshes / tab switches never log out.
+ * - No Firebase Auth popup; no domain allow-listing needed.
+ */
+
+const STORAGE_KEY = 'satarupa_admin_authenticated';
 
 interface AuthContextType {
-  currentUser: User | null;
   isAdmin: boolean;
-  isDemoAdmin: boolean;
   loading: boolean;
-  loginWithGoogle: () => Promise<void>;
-  logout: () => Promise<void>;
-  enableDemoAdmin: () => void;
-  disableDemoAdmin: () => void;
+  loginWithPassword: (password: string, correctPassword: string) => boolean;
+  logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
-  currentUser: null,
   isAdmin: false,
-  isDemoAdmin: false,
-  loading: true,
-  loginWithGoogle: async () => {},
-  logout: async () => {},
-  enableDemoAdmin: () => {},
-  disableDemoAdmin: () => {},
+  loading: false,
+  loginWithPassword: () => false,
+  logout: () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [isAdmin, setIsAdmin] = useState<boolean>(false);
-  const [isDemoAdmin, setIsDemoAdmin] = useState<boolean>(() => {
-    return localStorage.getItem('artisancraft_demo_admin') === 'true';
+  const [isAdmin, setIsAdmin] = useState<boolean>(() => {
+    return localStorage.getItem(STORAGE_KEY) === 'true';
   });
-  const [loading, setLoading] = useState<boolean>(true);
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setCurrentUser(user);
-      if (user) {
-        // Any user who signs in via Google or Admin passkey is granted admin status
-        setIsAdmin(true);
-        try {
-          await set(ref(db, `admins/${user.uid}`), {
-            uid: user.uid,
-            email: user.email || 'admin@satarupa.local',
-            role: 'super_admin',
-            updatedAt: new Date().toISOString(),
-          });
-        } catch (e) {
-          console.warn('Admin record sync notice (continuing):', e);
-        }
-      } else {
-        setIsAdmin(false);
-      }
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  const loginWithGoogle = async () => {
-    try {
-      const result = await signInWithPopup(auth, googleProvider);
-      const user = result.user;
-      if (user) {
-        setIsAdmin(true);
-        try {
-          await set(ref(db, `admins/${user.uid}`), {
-            uid: user.uid,
-            email: user.email || 'admin@satarupa.local',
-            role: 'super_admin',
-            updatedAt: new Date().toISOString(),
-          });
-        } catch {
-          // ignore
-        }
-      }
-    } catch (error) {
-      console.error('Google Sign In error:', error);
-      throw error;
+  const loginWithPassword = (password: string, correctPassword: string): boolean => {
+    if (password === correctPassword) {
+      setIsAdmin(true);
+      localStorage.setItem(STORAGE_KEY, 'true');
+      return true;
     }
+    return false;
   };
 
-  const logout = async () => {
-    await signOut(auth);
+  const logout = () => {
     setIsAdmin(false);
-    setIsDemoAdmin(false);
-    localStorage.removeItem('artisancraft_demo_admin');
-  };
-
-  const enableDemoAdmin = () => {
-    setIsDemoAdmin(true);
-    localStorage.setItem('artisancraft_demo_admin', 'true');
-  };
-
-  const disableDemoAdmin = () => {
-    setIsDemoAdmin(false);
-    localStorage.removeItem('artisancraft_demo_admin');
+    localStorage.removeItem(STORAGE_KEY);
+    // Also sign out of Firebase Auth silently (no-op if not signed in)
+    signOut(auth).catch(() => {});
   };
 
   return (
-    <AuthContext.Provider
-      value={{
-        currentUser,
-        isAdmin: isAdmin || isDemoAdmin,
-        isDemoAdmin,
-        loading,
-        loginWithGoogle,
-        logout,
-        enableDemoAdmin,
-        disableDemoAdmin,
-      }}
-    >
+    <AuthContext.Provider value={{ isAdmin, loading: false, loginWithPassword, logout }}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,13 +1,14 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, setPersistence, browserLocalPersistence } from 'firebase/auth';
-import { getDatabase, ref, set, get, update, remove, onValue, Database } from 'firebase/database';
+import { getDatabase, Database } from 'firebase/database';
 
 /**
  * PRODUCTION DEFAULT CONFIGURATION
- * Hardcoded directly with the Realtime Database URL:
+ * Hardcoded with the default project config and Realtime Database URL:
  * https://satarupa-project-default-rtdb.firebaseio.com/
- * This guarantees that when the repository is deployed to Vercel, mobile,
- * or local preview without environment variables, the app connects immediately.
+ * Allows the app to connect immediately out-of-the-box on localhost, Vercel,
+ * and mobile preview without requiring local .env setup.
+ * Values can still be overridden at runtime via VITE_FIREBASE_* environment variables.
  */
 export const DEFAULT_FIREBASE_CONFIG = {
   projectId: 'gen-lang-client-0564196108',
@@ -22,7 +23,7 @@ export const DEFAULT_FIREBASE_CONFIG = {
   recaptchaSiteKey: '',
 };
 
-// Supports import.meta.env overrides while falling back to DEFAULT_FIREBASE_CONFIG
+// Supports import.meta.env overrides while falling back safely to DEFAULT_FIREBASE_CONFIG
 export const firebaseConfig = {
   projectId:
     (typeof import.meta !== 'undefined' && import.meta.env?.VITE_FIREBASE_PROJECT_ID) ||
