@@ -11,7 +11,6 @@ import {
   ChevronRight,
   ChevronDown,
   ExternalLink,
-  ShieldCheck,
   X,
 } from 'lucide-react';
 import { Category, SiteSettings } from '../types';
@@ -430,7 +429,7 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         {/* Drawer Footer Actions */}
-        <div className="pt-4 border-t border-white/15 space-y-2.5">
+        <div className="pt-4 border-t border-white/15">
           <LuxuryButton
             shape="wide"
             size="md"
@@ -439,14 +438,6 @@ export const Header: React.FC<HeaderProps> = ({
           >
             Request Bespoke Quotation
           </LuxuryButton>
-
-          <button
-            onClick={() => handleNav('/admin')}
-            className="w-full py-2.5 px-3 rounded-full bg-white/5 hover:bg-white/10 border border-white/20 text-[#F4D9A0] text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer hover:-translate-y-0.5"
-          >
-            <ShieldCheck className="w-4 h-4 text-[#F4D9A0]" />
-            <span>Open Admin Panel</span>
-          </button>
         </div>
       </aside>
     </>
